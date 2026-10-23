@@ -1,0 +1,60 @@
+<?php
+
+return [
+    'accepted' => ':attribute harus diterima.',
+    'array' => ':attribute harus berupa array.',
+    'between' => [
+        'array' => ':attribute harus memiliki antara :min dan :max item.',
+        'file' => ':attribute harus berukuran antara :min dan :max kilobita.',
+        'numeric' => ':attribute harus antara :min dan :max.',
+        'string' => ':attribute harus antara :min dan :max karakter.',
+    ],
+    'boolean' => ':attribute harus bernilai benar atau salah.',
+    'confirmed' => 'Konfirmasi :attribute tidak cocok.',
+    'current_password' => 'Kata sandi saat ini salah.',
+    'different' => ':attribute dan :other harus berbeda.',
+    'email' => 'Format email tidak valid.',
+    'enum' => ':attribute yang dipilih tidak valid.',
+    'exists' => ':attribute yang dipilih tidak ditemukan.',
+    'file' => ':attribute harus berupa berkas.',
+    'image' => ':attribute harus berupa gambar.',
+    'in' => ':attribute yang dipilih tidak valid.',
+    'integer' => ':attribute harus berupa angka bulat.',
+    'max' => [
+        'array' => ':attribute maksimal :max item.',
+        'file' => ':attribute maksimal :max kilobita.',
+        'numeric' => ':attribute maksimal :max.',
+        'string' => ':attribute maksimal :max karakter.',
+    ],
+    'mimes' => ':attribute harus berupa berkas bertipe: :values.',
+    'mimetypes' => ':attribute harus berupa berkas bertipe: :values.',
+    'min' => [
+        'array' => ':attribute minimal :min item.',
+        'file' => ':attribute minimal :min kilobita.',
+        'numeric' => ':attribute minimal :min.',
+        'string' => ':attribute minimal :min karakter.',
+    ],
+    'numeric' => ':attribute harus berupa angka.',
+    'regex' => 'Format :attribute tidak valid.',
+    'required' => ':attribute wajib diisi.',
+    'same' => ':attribute dan :other harus sama.',
+    'string' => ':attribute harus berupa teks.',
+    'unique' => ':attribute ini sudah dipakai.',
+    'uploaded' => ':attribute gagal diunggah.',
+
+    'custom' => [
+        'email' => ['unique' => 'Email ini sudah terdaftar. Coba masuk, atau gunakan email lain.'],
+    ],
+
+    'attributes' => [
+        'name' => 'Nama',
+        'email' => 'Email',
+        'password' => 'Kata sandi',
+        'password_confirmation' => 'Konfirmasi kata sandi',
+        'current_password' => 'Kata sandi saat ini',
+        'email_password' => 'Kata sandi saat ini',
+        'rating' => 'Rating',
+        'comment' => 'Ulasan',
+        'role' => 'Peran',
+    ],
+];

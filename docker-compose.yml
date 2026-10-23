@@ -1,0 +1,27 @@
+# Database lokal untuk perpustakaan digital (Laravel).
+#   docker compose up -d
+#
+# Masuk via host port 5433 (bukan 5432) agar aman dipakai bersama
+# database lain yang sudah berjalan di 5432.
+# Kredensial ini cocok dengan .env bawaan; hanya untuk pengembangan lokal.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: perpus-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: perpustakaan_laravel
+      POSTGRES_USER: perpus
+      POSTGRES_PASSWORD: perpus
+    ports:
+      - "5433:5432"
+    volumes:
+      - perpus_db_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U perpus -d perpustakaan_laravel"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  perpus_db_pgdata:
