@@ -3,24 +3,30 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\LoanStatus;
+use App\Exceptions\LoanException;
 use App\Http\Controllers\Controller;
-use App\Models\ActivityLog;
 use App\Models\Loan;
+use App\Services\LoanService;
 use App\Support\Query;
+use App\Support\Rupiah;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class LoanController extends Controller
 {
+    public function __construct(private readonly LoanService $loans) {}
+
     public function index(Request $request): View
     {
         $status = Query::enum($request, 'status', LoanStatus::class);
         $q = Query::string($request, 'q');
+        $fineOnly = $request->boolean('denda');
 
         $loans = Loan::query()
-            ->with(['user', 'book'])
+            ->with(['user', 'book', 'fineWaivedBy'])
             ->withStatus($status)
+            ->when($fineOnly, fn ($query) => $query->unpaidFine())
             ->when($q !== '', function ($query) use ($q) {
                 $like = '%'.addcslashes($q, '%_\\').'%';
                 $query->where(fn ($w) => $w
@@ -30,19 +36,26 @@ class LoanController extends Controller
             ->latest('borrowed_at')->latest('id')
             ->paginate(config('library.admin_per_page'), pageName: 'halaman')->withQueryString();
 
-        return view('admin.loans', ['nav' => 'loans', 'loans' => $loans, 'status' => $status, 'q' => $q]);
+        return view('admin.loans', [
+            'nav' => 'loans',
+            'loans' => $loans,
+            'status' => $status,
+            'q' => $q,
+            'fineOnly' => $fineOnly,
+        ]);
     }
 
-    /** Mengakhiri pinjaman aktif (akses langsung ditutup). */
-    public function update(Loan $loan): RedirectResponse
+    /** Mengakhiri pinjaman (akses langsung ditutup). Denda tetap dihitung bila telat. */
+    public function update(Request $request, Loan $loan): RedirectResponse
     {
-        if ($loan->returned_at !== null) {
-            return back()->with('error', 'Pinjaman tidak ditemukan atau sudah selesai.');
+        try {
+            $closed = $this->loans->endByAdmin($loan, $request->user());
+        } catch (LoanException $e) {
+            return back()->with('error', $e->getMessage());
         }
 
-        $loan->update(['returned_at' => now()]);
-        ActivityLog::record('finish_loan', 'loan', $loan->id, "Mengakhiri pinjaman #{$loan->id} (buku #{$loan->book_id}, anggota #{$loan->user_id})");
-
-        return back()->with('success', 'Pinjaman diakhiri.');
+        return back()->with('success', $closed->fine_amount > 0
+            ? 'Pinjaman diakhiri. Denda '.Rupiah::format($closed->fine_amount)." ({$closed->late_days} hari telat) dicatat."
+            : 'Pinjaman diakhiri.');
     }
 }

@@ -29,6 +29,7 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'must_change_password' => 'boolean',
             'last_login_at' => 'datetime',
+            'suspend_until' => 'datetime',
         ];
     }
 
@@ -58,6 +59,21 @@ class User extends Authenticatable
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);
+    }
+
+    public function isSuspended(): bool
+    {
+        // getRawOriginal tidak melempar galat saat kolom belum termuat (mis. model
+        // yang baru dibuat lewat factory), berbeda dengan akses atribut biasa.
+        $until = $this->getRawOriginal('suspend_until');
+
+        return $until !== null && $this->asDateTime($until)->isFuture();
+    }
+
+    /** Total denda yang masih menjadi tagihan terbuka. */
+    public function unpaidFineTotal(): int
+    {
+        return (int) $this->loans()->unpaidFine()->sum('fine_amount');
     }
 
     /** @return BelongsToMany<Book, $this> */

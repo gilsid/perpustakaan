@@ -68,6 +68,8 @@ Route::middleware(['auth', 'password.fresh'])->group(function () {
 
         Route::get('/peminjaman', [Admin\LoanController::class, 'index'])->name('loans.index');
         Route::patch('/peminjaman/{loan}', [Admin\LoanController::class, 'update'])->name('loans.update');
+        Route::patch('/peminjaman/{loan}/denda/lunas', [Admin\LoanFineController::class, 'pay'])->name('loans.fine.pay');
+        Route::patch('/peminjaman/{loan}/denda/bebas', [Admin\LoanFineController::class, 'waive'])->name('loans.fine.waive');
 
         Route::get('/ulasan', [Admin\ReviewController::class, 'index'])->name('reviews.index');
         Route::delete('/ulasan/{review}', [Admin\ReviewController::class, 'destroy'])->name('reviews.destroy');

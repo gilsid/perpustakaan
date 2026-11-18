@@ -1,7 +1,8 @@
 # Perpustakaan Digital (Laravel)
 
-Aplikasi perpustakaan digital: katalog dengan pencarian dan filter, peminjaman buku PDF, pembaca PDF di peramban,
-favorit, ulasan, dan panel admin. Dibangun dengan **Laravel 13**, **PostgreSQL**, dan **Vite**.
+Aplikasi perpustakaan digital: katalog dengan pencarian dan filter, peminjaman buku PDF, denda keterlambatan
+dan skorsing, pembaca PDF di peramban, favorit, ulasan, dan panel admin. Dibangun dengan **Laravel 13**,
+**PostgreSQL**, dan **Vite**.
 
 ## Kebutuhan
 
@@ -73,31 +74,52 @@ Diatur lewat `.env`:
 
 - Hanya buku yang punya PDF yang bisa dipinjam; buku tanpa PDF tampil sebagai "Hanya katalog".
 - PDF hanya bisa dibuka saat pinjaman aktif; setelah tenggat lewat atau buku dikembalikan, akses otomatis tertutup.
+- Pinjaman yang lewat tenggat **tidak** ditutup otomatis: anggota harus menekan "Kembalikan" agar keterlambatan tercatat.
 - Ulasan hanya bisa ditulis anggota yang pernah meminjam bukunya (`library.review_requires_loan`).
 - Admin bisa membaca semua PDF, tetapi tidak meminjam, menyimpan favorit, atau mengulas.
 
 Zona waktu aplikasi dan koneksi database: `APP_TIMEZONE` (bawaan `Asia/Jakarta`).
 
+## Denda & skorsing
+
+Tarif denda di-*snapshot* ke setiap pinjaman saat meminjam, jadi mengubah `.env` tidak mengubah tagihan yang sudah berjalan.
+
+| Pengaturan | Bawaan | Arti |
+|---|---|---|
+| `FINE_RATE_PER_DAY` | `1000` | Rp per hari telat |
+| `FINE_MAX` | `50000` | Batas maksimum denda per pinjaman |
+| `FINE_GRACE_HOURS` | `24` | Bebas denda bila terlambat ≤ 24 jam |
+| `FINE_SUSPEND_FACTOR` | `2` | 1 hari telat = 2 hari skorsing |
+| `FINE_SUSPEND_MAX_DAYS` | `30` | Batas maksimum durasi skorsing |
+
+- **Hari telat** = `ceil((dikembalikan − due_at − grace) / 24 jam)`, minimal 0. Hari kalender, bukan hari kerja.
+- **Nominal** = `min(hari telat × tarif, FINE_MAX)`. Dihitung sekali saat pinjaman ditutup (oleh anggota atau admin).
+- **Skorsing** mulai berjalan saat pinjaman telat dikembalikan: `users.suspend_until = sekarang + hari telat × faktor` (maks. 30 hari).
+- Anggota **tidak bisa meminjam** bila diskors, punya denda belum lunas, atau masih punya pinjaman lewat tenggat. Alasannya tampil di halaman buku.
+- Uang dibayar tunai ke pustakawan; admin lalu menekan **Lunas** (penuh, nominal tidak bisa diedit) atau **Bebaskan** dengan alasan wajib (≥5 karakter). Membebaskan denda sekaligus mencabut skorsing.
+- Denda yang dibebaskan tetap menyimpan nominal aslinya untuk audit, dan setiap pelunasan/pembebasan dicatat di `activity_logs`.
+- Migration `2026_11_18_000001` menutup pinjaman yang sudah telat saat fitur ini dipasang (`returned_at = due_at`) agar tidak ada tagihan mundur. Pinjaman yang masih berjalan diisi tarif aktif supaya tidak menghasilkan denda Rp0 saat dikembalikan telat.
+
 ## Struktur
 
 ```
 app/
-  Enums/                 UserRole, LoanStatus, CatalogSort
+  Enums/                 UserRole, LoanStatus, FineStatus, CatalogSort
   Http/Controllers/      tipis: validasi (FormRequest) → service/model → view
     Admin/  Account/  Auth/
   Http/Middleware/       EnsureUserIsActive, RequirePasswordChange, SecurityHeaders
   Http/Requests/         seluruh validasi form
   Models/                User, Book, Category, Loan, Review, ActivityLog (scope + accessor)
   Policies/              BookPolicy (hak baca PDF), ReviewPolicy
-  Services/              LoanService (aturan pinjam, transaksi), BookMedia (sampul & PDF)
-  Rules/  Support/       PdfSignature, CatalogFilters, Query
+  Services/              LoanService (aturan pinjam, denda, transaksi), FineCalculator (hitungan murni), BookMedia
+  Rules/  Support/       PdfSignature; CatalogFilters, Query, Rupiah
   Console/Commands/      library:create-admin
-config/library.php       aturan peminjaman, batas upload, throttle login
+config/library.php       aturan peminjaman, denda, batas upload, throttle login
 database/                migrations, factories, seeders (+ PDF contoh)
 lang/id/                 terjemahan validasi
 resources/               views (Blade: components/, layouts/), css, js
 routes/web.php           semua rute (bernama)
-tests/                   Feature + Unit (105 tes)
+tests/                   Feature + Unit (141 tes)
 ```
 
 PDF disimpan di `storage/app/private/books` (di luar folder publik) dan hanya dilayani oleh `ReaderController`
@@ -112,6 +134,7 @@ setelah `BookPolicy` mengizinkan, dengan dukungan HTTP Range. Sampul di `storage
 - Kata sandi sementara hasil reset admin wajib diganti sebelum memakai fitur lain.
 - Header CSP (tanpa `unsafe-inline`, tanpa sumber eksternal), `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`.
 - Integritas data dijaga database: foreign key, `CHECK`, `UNIQUE`, dan unique index parsial yang mencegah pinjaman ganda.
+- Penetapan denda, pelunasan, dan pembebasan denda dicatat di `activity_logs` (termasuk alasan pembebasan).
 - Di luar produksi, `Model::shouldBeStrict()` membuat N+1 query langsung terdeteksi.
 
 ## Pengujian

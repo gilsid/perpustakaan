@@ -13,6 +13,21 @@ return [
         'max_renewals' => (int) env('LOAN_MAX_RENEWALS', 1),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Denda keterlambatan
+    |--------------------------------------------------------------------------
+    | Tarif di-snapshot ke setiap pinjaman saat meminjam, sehingga mengubah
+    | nilai di sini tidak mengubah tagihan yang sudah berjalan.
+    */
+    'fine' => [
+        'rate_per_day' => (int) env('FINE_RATE_PER_DAY', 1000),
+        'max' => (int) env('FINE_MAX', 50000),
+        'grace_hours' => (int) env('FINE_GRACE_HOURS', 24),
+        'suspend_factor' => (int) env('FINE_SUSPEND_FACTOR', 2),
+        'suspend_max_days' => (int) env('FINE_SUSPEND_MAX_DAYS', 30),
+    ],
+
     // Ulasan hanya boleh ditulis anggota yang pernah meminjam bukunya.
     'review_requires_loan' => (bool) env('LIBRARY_REVIEW_REQUIRES_LOAN', true),
 

@@ -72,25 +72,26 @@ class LoanTest extends TestCase
         $this->assertSame(2, Loan::count());
     }
 
-    public function test_an_expired_loan_does_not_block_borrowing_the_same_book_again(): void
+    public function test_an_overdue_loan_stays_open_and_blocks_borrowing(): void
     {
         $user = $this->member();
         $book = Book::factory()->withPdf()->create();
-        Loan::factory()->expired()->create(['user_id' => $user->id, 'book_id' => $book->id]);
+        $loan = Loan::factory()->expired()->create(['user_id' => $user->id, 'book_id' => $book->id]);
 
-        $this->actingAs($user)->post("/buku/{$book->id}/pinjam")->assertSessionHas('success');
+        $this->actingAs($user)->post("/buku/{$book->id}/pinjam")->assertSessionHas('error');
 
-        $this->assertSame(1, Loan::where('user_id', $user->id)->active()->count());
-        $this->assertSame(0, Loan::where('user_id', $user->id)->expired()->count());
+        $this->assertNull($loan->fresh()->returned_at, 'Pinjaman telat tidak boleh ditutup otomatis.');
+        $this->assertSame(0, Loan::where('user_id', $user->id)->active()->count());
     }
 
-    public function test_expired_loans_do_not_count_towards_the_limit(): void
+    public function test_overdue_loans_block_other_borrows_too(): void
     {
         $user = $this->member();
-        Loan::factory()->expired()->count(5)->create(['user_id' => $user->id]);
+        Loan::factory()->expired()->count(2)->create(['user_id' => $user->id]);
         $book = Book::factory()->withPdf()->create();
 
-        $this->actingAs($user)->post("/buku/{$book->id}/pinjam")->assertSessionHas('success');
+        $this->actingAs($user)->post("/buku/{$book->id}/pinjam")->assertSessionHas('error');
+        $this->assertSame(0, Loan::where('book_id', $book->id)->count());
     }
 
     public function test_renewal_extends_the_due_date_once(): void

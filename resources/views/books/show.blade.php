@@ -5,6 +5,7 @@
     $maxLoans = config('library.loan.max_active');
     $days = config('library.loan.days');
     $totalReviews = array_sum($distribution);
+    $blocked = ($blockReasons ?? []) !== [];
 @endphp
 <x-layouts.app :title="$book->title">
 <div class="container page">
@@ -52,12 +53,19 @@
                         <form method="post" action="{{ route('loans.destroy', $book) }}" data-confirm="Kembalikan buku ini? Anda tidak bisa membacanya lagi sebelum meminjam ulang." data-confirm-label="Kembalikan">@csrf @method('DELETE')<button class="btn btn--ghost" type="submit">Kembalikan</button></form>
                     </div>
                 @else
+                    @foreach ($blockReasons as $reason)
+                        <div class="alert alert--warning" role="status"><x-icon name="alert" /><p>{{ $reason }}</p></div>
+                    @endforeach
                     <p class="loan-box__status"><x-icon name="book" />Tersedia untuk dipinjam {{ $days }} hari. Anda meminjam {{ $activeCount }} dari {{ $maxLoans }} buku.</p>
                     <div class="loan-box__actions">
                         <form method="post" action="{{ route('loans.store', $book) }}">@csrf
-                            <button class="btn btn--primary btn--lg" type="submit" @disabled($activeCount >= $maxLoans)>Pinjam buku</button>
+                            <button class="btn btn--primary btn--lg" type="submit" @disabled($activeCount >= $maxLoans || $blocked)>Pinjam buku</button>
                         </form>
-                        @if ($activeCount >= $maxLoans)<p class="hint">Batas pinjaman tercapai. Kembalikan satu buku dulu.</p>@endif
+                        @if ($activeCount >= $maxLoans)
+                            <p class="hint">Batas pinjaman tercapai. Kembalikan satu buku dulu.</p>
+                        @elseif ($blocked)
+                            <p class="hint">Peminjaman dibuka lagi setelah hal di atas diselesaikan.</p>
+                        @endif
                     </div>
                 @endif
                 @if ($isMember && $book->has_pdf)

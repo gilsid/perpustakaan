@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FineStatus;
 use App\Enums\LoanStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -10,7 +11,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['user_id', 'book_id', 'borrowed_at', 'due_at', 'returned_at', 'renewals'])]
+#[Fillable(['user_id', 'book_id', 'borrowed_at', 'due_at', 'returned_at', 'renewals',
+    'fine_rate', 'late_days', 'fine_amount', 'fine_paid_at', 'fine_waived_at', 'fine_waived_by'])]
 class Loan extends Model
 {
     use HasFactory;
@@ -27,6 +29,11 @@ class Loan extends Model
             'due_at' => 'datetime',
             'returned_at' => 'datetime',
             'renewals' => 'integer',
+            'fine_rate' => 'integer',
+            'late_days' => 'integer',
+            'fine_amount' => 'integer',
+            'fine_paid_at' => 'datetime',
+            'fine_waived_at' => 'datetime',
         ];
     }
 
@@ -40,6 +47,12 @@ class Loan extends Model
     public function book(): BelongsTo
     {
         return $this->belongsTo(Book::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function fineWaivedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'fine_waived_by');
     }
 
     // ------------------------------------------------------------------- scopes
@@ -57,6 +70,20 @@ class Loan extends Model
     public function scopeReturned(Builder $query): void
     {
         $query->whereNotNull('returned_at');
+    }
+
+    /** Pinjaman yang dendanya masih menjadi tagihan terbuka. */
+    public function scopeUnpaidFine(Builder $query): void
+    {
+        $query->where('fine_amount', '>', 0)
+            ->whereNull('fine_paid_at')
+            ->whereNull('fine_waived_at');
+    }
+
+    /** Pinjaman telat yang belum dikembalikan (dasar pemblokiran peminjaman baru). */
+    public function scopeOverdue(Builder $query): void
+    {
+        $query->whereNull('returned_at')->where('due_at', '<=', now());
     }
 
     /** Riwayat = sudah dikembalikan atau sudah berakhir. */
@@ -110,5 +137,25 @@ class Loan extends Model
     protected function canRenew(): Attribute
     {
         return Attribute::get(fn (): bool => $this->renewals < config('library.loan.max_renewals'));
+    }
+
+    protected function fineStatus(): Attribute
+    {
+        return Attribute::get(fn (): FineStatus => match (true) {
+            $this->fine_amount <= 0 => FineStatus::None,
+            $this->fine_waived_at !== null => FineStatus::Waived,
+            $this->fine_paid_at !== null => FineStatus::Paid,
+            default => FineStatus::Unpaid,
+        });
+    }
+
+    /** Hari telat: hasil snapshot untuk pinjaman tertutup, hitungan berjalan untuk yang masih terbuka. */
+    protected function daysLate(): Attribute
+    {
+        return Attribute::get(fn (): int => match (true) {
+            $this->returned_at !== null => $this->late_days,
+            $this->due_at->isPast() => (int) ceil((time() - $this->due_at->getTimestamp()) / 86400),
+            default => 0,
+        });
     }
 }
