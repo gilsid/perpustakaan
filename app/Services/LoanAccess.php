@@ -31,4 +31,19 @@ final class LoanAccess
             ->where('book_id', $book->id)
             ->exists();
     }
+
+    /** Pinjaman yang belum dikembalikan, termasuk yang sudah lewat tenggat. */
+    public function hasOpenLoan(User $user, Book $book): bool
+    {
+        return Loan::query()
+            ->where('user_id', $user->id)
+            ->where('book_id', $book->id)
+            ->whereNull('returned_at')
+            ->exists();
+    }
+
+    public function activeCount(User $user): int
+    {
+        return Loan::query()->where('user_id', $user->id)->active()->count();
+    }
 }

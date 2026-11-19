@@ -3,17 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Book;
-use App\Models\Loan;
 use App\Models\Review;
+use App\Services\BorrowEligibility;
 use App\Services\LoanAccess;
-use App\Services\LoanService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 
 class BookController extends Controller
 {
     public function __construct(
-        private readonly LoanService $loans,
+        private readonly BorrowEligibility $eligibility,
         private readonly LoanAccess $access,
     ) {}
 
@@ -27,7 +26,7 @@ class BookController extends Controller
         $myReview = $isMember ? Review::query()->where('user_id', $user->id)->where('book_id', $book->id)->first() : null;
         $canReview = $isMember && (! config('library.review_requires_loan')
             || $this->access->hasBorrowed($user, $book));
-        $blockReasons = $isMember && $activeLoan === null ? $this->loans->blockReasons($user) : [];
+        $standing = $isMember && $activeLoan === null ? $this->eligibility->forBook($user, $book) : null;
 
         $distribution = array_fill_keys([5, 4, 3, 2, 1], 0);
         foreach ($book->reviews()->selectRaw('rating, count(*) as n')->groupBy('rating')->pluck('n', 'rating') as $rating => $n) {
@@ -40,8 +39,7 @@ class BookController extends Controller
             'distribution' => $distribution,
             'isFavorite' => $isMember && $user->favorites()->whereKey($book->id)->exists(),
             'activeLoan' => $activeLoan,
-            'activeCount' => $isMember ? Loan::query()->where('user_id', $user->id)->active()->count() : 0,
-            'blockReasons' => $blockReasons,
+            'standing' => $standing,
             'myReview' => $myReview,
             'canReview' => $canReview,
             'sameAuthor' => Book::query()->with('category')->withStats()

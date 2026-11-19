@@ -3,10 +3,10 @@
     <header class="page__head"><h1>Rak saya</h1></header>
     <x-account-tabs :tab="$tab" />
 
-    @if ($blockReasons !== [])
+    @if ($standing?->isBlocked())
         <div class="flashes">
-            @foreach ($blockReasons as $reason)
-                <div class="alert alert--warning" role="status"><x-icon name="alert" /><p>{{ $reason }}</p></div>
+            @foreach ($standing->blocks as $block)
+                <div class="alert alert--warning" role="status"><x-icon name="alert" /><p>{{ $block->message() }}</p></div>
             @endforeach
         </div>
     @endif
@@ -34,7 +34,7 @@
     @endif
 
     <section class="section section--tight" aria-labelledby="sedang">
-        <h2 id="sedang">Sedang dipinjam <span class="count">{{ $active->count() }} / {{ config('library.loan.max_active') }}</span></h2>
+        <h2 id="sedang">Sedang dipinjam <span class="count">{{ $active->count() }} / {{ $standing->maxActive }}</span></h2>
         @if ($active->isEmpty())
             <div class="empty empty--inline">
                 <p>Anda belum meminjam buku apa pun.</p>

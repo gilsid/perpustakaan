@@ -2,10 +2,8 @@
     $user = auth()->user();
     $isMember = $user?->isMember() ?? false;
     $isAdmin = $user?->isAdmin() ?? false;
-    $maxLoans = config('library.loan.max_active');
     $days = config('library.loan.days');
     $totalReviews = array_sum($distribution);
-    $blocked = ($blockReasons ?? []) !== [];
 @endphp
 <x-layouts.app :title="$book->title">
 <div class="container page">
@@ -53,17 +51,15 @@
                         <form method="post" action="{{ route('loans.destroy', $book) }}" data-confirm="Kembalikan buku ini? Anda tidak bisa membacanya lagi sebelum meminjam ulang." data-confirm-label="Kembalikan">@csrf @method('DELETE')<button class="btn btn--ghost" type="submit">Kembalikan</button></form>
                     </div>
                 @else
-                    @foreach ($blockReasons as $reason)
-                        <div class="alert alert--warning" role="status"><x-icon name="alert" /><p>{{ $reason }}</p></div>
+                    @foreach ($standing->blocks as $block)
+                        <div class="alert alert--warning" role="status"><x-icon name="alert" /><p>{{ $block->message() }}</p></div>
                     @endforeach
-                    <p class="loan-box__status"><x-icon name="book" />Tersedia untuk dipinjam {{ $days }} hari. Anda meminjam {{ $activeCount }} dari {{ $maxLoans }} buku.</p>
+                    <p class="loan-box__status"><x-icon name="book" />Tersedia untuk dipinjam {{ $days }} hari. Anda meminjam {{ $standing->activeLoans }} dari {{ $standing->maxActive }} buku.</p>
                     <div class="loan-box__actions">
                         <form method="post" action="{{ route('loans.store', $book) }}">@csrf
-                            <button class="btn btn--primary btn--lg" type="submit" @disabled($activeCount >= $maxLoans || $blocked)>Pinjam buku</button>
+                            <button class="btn btn--primary btn--lg" type="submit" @disabled($standing->isBlocked())>Pinjam buku</button>
                         </form>
-                        @if ($activeCount >= $maxLoans)
-                            <p class="hint">Batas pinjaman tercapai. Kembalikan satu buku dulu.</p>
-                        @elseif ($blocked)
+                        @if ($standing->isBlocked())
                             <p class="hint">Peminjaman dibuka lagi setelah hal di atas diselesaikan.</p>
                         @endif
                     </div>

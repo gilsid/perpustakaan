@@ -4,13 +4,13 @@ namespace App\Http\Controllers\Account;
 
 use App\Http\Controllers\Controller;
 use App\Models\Loan;
-use App\Services\LoanService;
+use App\Services\BorrowEligibility;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 
 class LoanController extends Controller
 {
-    public function __construct(private readonly LoanService $loans) {}
+    public function __construct(private readonly BorrowEligibility $eligibility) {}
 
     public function index(Request $request): View
     {
@@ -21,7 +21,7 @@ class LoanController extends Controller
             'active' => (clone $loans)->active()->orderBy('due_at')->get(),
             'overdue' => (clone $loans)->overdue()->orderBy('due_at')->get(),
             'history' => (clone $loans)->returned()->latest('borrowed_at')->limit(100)->get(),
-            'blockReasons' => $this->loans->blockReasons($request->user()),
+            'standing' => $this->eligibility->forMember($request->user()),
         ]);
     }
 }

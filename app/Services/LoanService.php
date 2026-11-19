@@ -18,6 +18,7 @@ class LoanService
         private readonly FineCalculator $fines,
         private readonly LoanClock $clock,
         private readonly LoanAccess $access,
+        private readonly BorrowEligibility $eligibility,
     ) {}
 
     /**
@@ -25,29 +26,16 @@ class LoanService
      */
     public function borrow(User $user, Book $book): Loan
     {
-        if (! $book->has_pdf) {
-            throw new LoanException('Buku ini belum tersedia dalam bentuk digital, jadi belum bisa dipinjam.');
-        }
-
-        $this->ensureEligible($user);
-
         $days = (int) config('library.loan.days');
-        $max = (int) config('library.loan.max_active');
         $rate = (int) config('library.fine.rate_per_day');
 
         try {
-            return DB::transaction(function () use ($user, $book, $days, $max, $rate): Loan {
+            return DB::transaction(function () use ($user, $book, $days, $rate): Loan {
                 // Kunci baris anggota agar dua permintaan bersamaan tidak sama-sama lolos batas pinjaman.
                 $locked = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
-                $this->ensureEligible($locked);
 
-                // Pinjaman lewat tenggat sengaja dibiarkan terbuka: itu bukti keterlambatan
-                // dan dasar denda. Karena itu buku yang sama tidak bisa dipinjam ulang.
-                if (Loan::query()->where('user_id', $user->id)->where('book_id', $book->id)->whereNull('returned_at')->exists()) {
-                    throw new LoanException('Anda sudah meminjam buku ini.');
-                }
-                if (Loan::query()->where('user_id', $user->id)->active()->count() >= $max) {
-                    throw new LoanException("Batas pinjaman tercapai ($max buku). Kembalikan salah satu buku dulu.");
+                if ($block = $this->eligibility->forBook($locked, $book)->first()) {
+                    throw new LoanException($block->message());
                 }
 
                 return Loan::create([
@@ -129,33 +117,6 @@ class LoanService
         ]);
 
         return $loan;
-    }
-
-    /**
-     * Alasan anggota tidak boleh meminjam buku baru. Kosong berarti boleh.
-     *
-     * @return list<string>
-     */
-    public function blockReasons(User $user): array
-    {
-        $reasons = [];
-
-        if ($user->isSuspended()) {
-            $reasons[] = 'Akun Anda diskors sampai '.$user->suspend_until->translatedFormat('j M Y').' karena keterlambatan pengembalian.';
-        }
-
-        $fines = $user->unpaidFineTotal();
-        if ($fines > 0) {
-            $reasons[] = 'Ada denda belum lunas sebesar '.Rupiah::format($fines).'. Selesaikan ke pustakawan sebelum meminjam lagi.';
-        }
-
-        $overdue = Loan::query()->where('user_id', $user->id)->overdue()->with('book')->orderBy('due_at')->get();
-        if ($overdue->isNotEmpty()) {
-            $titles = $overdue->take(2)->pluck('book.title')->implode('”, “');
-            $reasons[] = 'Masih ada pinjaman lewat tenggat: “'.$titles.'”. Kembalikan dulu.';
-        }
-
-        return $reasons;
     }
 
     /** @throws LoanException */
@@ -270,15 +231,5 @@ class LoanService
         $locked->forceFill([
             'suspend_until' => $current !== null && $current->greaterThan($until) ? $current : $until,
         ])->save();
-    }
-
-    /** @throws LoanException */
-    private function ensureEligible(User $user): void
-    {
-        $reasons = $this->blockReasons($user);
-
-        if ($reasons !== []) {
-            throw new LoanException($reasons[0]);
-        }
     }
 }
