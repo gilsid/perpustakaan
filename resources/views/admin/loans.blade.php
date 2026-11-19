@@ -54,7 +54,7 @@
                                 @csrf @method('PATCH')<button class="btn btn--secondary btn--sm" type="submit">Akhiri</button>
                             </form>
                         @endif
-                        @if ($l->fine_status === \App\Enums\FineStatus::Unpaid)
+                        @if ($l->fine_status->canBeSettled())
                             <form method="post" action="{{ route('admin.loans.fine.pay', $l) }}" data-confirm="Tandai denda {{ \App\Support\Rupiah::format($l->fine_amount) }} milik {{ $l->user->name }} lunas? Pastikan uang sudah diterima." data-confirm-label="Tandai lunas">
                                 @csrf @method('PATCH')<button class="btn btn--secondary btn--sm" type="submit">Lunas</button>
                             </form>

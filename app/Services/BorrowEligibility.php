@@ -15,7 +15,10 @@ use App\Support\BorrowStanding;
  */
 final class BorrowEligibility
 {
-    public function __construct(private readonly LoanAccess $access) {}
+    public function __construct(
+        private readonly LoanAccess $access,
+        private readonly FineService $fines,
+    ) {}
 
     /**
      * Alasan yang berasal dari keadaan anggota, tanpa melihat buku mana pun.
@@ -30,7 +33,7 @@ final class BorrowEligibility
             $blocks[] = BorrowBlock::suspended($user->suspend_until);
         }
 
-        $fines = $user->unpaidFineTotal();
+        $fines = $this->fines->unpaidTotal($user);
         if ($fines > 0) {
             $blocks[] = BorrowBlock::unpaidFine($fines);
         }

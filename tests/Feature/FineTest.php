@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\Book;
 use App\Models\Loan;
 use App\Models\User;
+use App\Services\FineService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -169,7 +170,7 @@ class FineTest extends TestCase
             ->assertSessionHas('success');
 
         $this->assertNotNull($loan->fresh()->fine_paid_at);
-        $this->assertSame(0, $user->fresh()->unpaidFineTotal());
+        $this->assertSame(0, app(FineService::class)->unpaidTotal($user->fresh()));
 
         // Skorsing masih berjalan, jadi peminjaman tetap ditolak sampai tanggalnya lewat.
         $book = Book::factory()->withPdf()->create();
@@ -226,7 +227,7 @@ class FineTest extends TestCase
         $this->assertSame(FineStatus::Waived, $loan->fine_status);
         $this->assertSame($admin->id, $loan->fine_waived_by);
         $this->assertSame(3000, $loan->fine_amount, 'Nominal asli tetap tercatat untuk audit.');
-        $this->assertSame(0, $user->fresh()->unpaidFineTotal());
+        $this->assertSame(0, app(FineService::class)->unpaidTotal($user->fresh()));
         $this->assertNull($user->fresh()->suspend_until);
         $this->assertDatabaseHas('activity_logs', ['action' => 'fine_waived', 'entity_id' => $loan->id]);
     }

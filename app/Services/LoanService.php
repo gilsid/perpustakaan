@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\FineStatus;
 use App\Exceptions\LoanException;
 use App\Models\ActivityLog;
 use App\Models\Book;
@@ -15,8 +14,8 @@ use Illuminate\Support\Facades\DB;
 class LoanService
 {
     public function __construct(
-        private readonly FineCalculator $fines,
-        private readonly LoanClock $clock,
+        private readonly FineService $fines,
+        private readonly FinePolicy $finePolicy,
         private readonly LoanAccess $access,
         private readonly BorrowEligibility $eligibility,
     ) {}
@@ -27,7 +26,7 @@ class LoanService
     public function borrow(User $user, Book $book): Loan
     {
         $days = (int) config('library.loan.days');
-        $rate = (int) config('library.fine.rate_per_day');
+        $rate = $this->finePolicy->ratePerDay();
 
         try {
             return DB::transaction(function () use ($user, $book, $days, $rate): Loan {
@@ -128,11 +127,7 @@ class LoanService
             $locked = Loan::query()->whereKey($loan->id)->lockForUpdate()->first()
                 ?? throw new LoanException('Pinjaman tidak ditemukan.');
 
-            if ($locked->fine_status !== FineStatus::Unpaid) {
-                throw new LoanException('Tidak ada denda yang perlu dilunasi.');
-            }
-
-            $locked->update(['fine_paid_at' => now()]);
+            $this->fines->settle($locked);
 
             ActivityLog::record(
                 'fine_paid',
@@ -156,16 +151,7 @@ class LoanService
             $locked = Loan::query()->whereKey($loan->id)->lockForUpdate()->first()
                 ?? throw new LoanException('Pinjaman tidak ditemukan.');
 
-            if ($locked->fine_status !== FineStatus::Unpaid) {
-                throw new LoanException('Tidak ada denda yang bisa dibebaskan.');
-            }
-
-            $locked->update([
-                'fine_waived_at' => now(),
-                'fine_waived_by' => $admin->id,
-            ]);
-
-            $locked->user()->update(['suspend_until' => null]);
+            $this->fines->waive($locked, $admin);
 
             ActivityLog::record(
                 'fine_waived',
@@ -184,52 +170,20 @@ class LoanService
      */
     private function closeLoan(Loan $loan, User $actor): Loan
     {
-        $returnedAt = now();
-        $lateDays = $this->clock->lateDays($loan->due_at, $returnedAt);
-        $amount = $this->fines->amount($lateDays, $loan->fine_rate);
+        $closed = $this->fines->assess($loan, now());
 
-        $loan->update([
-            'returned_at' => $returnedAt,
-            'late_days' => $lateDays,
-            'fine_amount' => $amount,
-        ]);
-
-        if ($lateDays > 0) {
-            $this->applySuspension($loan->user, $lateDays);
-
+        if ($closed->late_days > 0) {
             ActivityLog::record(
                 'fine_assessed',
                 'loan',
-                $loan->id,
-                $amount > 0
-                    ? "Denda {$lateDays} hari telat = ".Rupiah::format($amount)." untuk pinjaman #{$loan->id} (anggota #{$loan->user_id})"
-                    : "Keterlambatan {$lateDays} hari tanpa denda (tarif 0) untuk pinjaman #{$loan->id} (anggota #{$loan->user_id})",
+                $closed->id,
+                $closed->fine_amount > 0
+                    ? "Denda {$closed->late_days} hari telat = ".Rupiah::format($closed->fine_amount)." untuk pinjaman #{$closed->id} (anggota #{$closed->user_id})"
+                    : "Keterlambatan {$closed->late_days} hari tanpa denda (tarif 0) untuk pinjaman #{$closed->id} (anggota #{$closed->user_id})",
                 $actor,
             );
         }
 
-        return $loan->refresh();
-    }
-
-    private function applySuspension(User $user, int $lateDays): void
-    {
-        $factor = (int) config('library.fine.suspend_factor');
-        $cap = (int) config('library.fine.suspend_max_days');
-        $days = min($lateDays * $factor, $cap);
-
-        if ($days <= 0) {
-            return;
-        }
-
-        $until = now()->addDays($days);
-
-        // Baca ulang dengan kunci: dua pengembalian telat yang hampir bersamaan
-        // tidak boleh saling menimpa dan memendekkan skorsing.
-        $locked = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
-        $current = $locked->suspend_until;
-
-        $locked->forceFill([
-            'suspend_until' => $current !== null && $current->greaterThan($until) ? $current : $until,
-        ])->save();
+        return $closed;
     }
 }

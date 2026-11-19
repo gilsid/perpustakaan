@@ -154,12 +154,11 @@ class Loan extends Model
 
     protected function fineStatus(): Attribute
     {
-        return Attribute::get(fn (): FineStatus => match (true) {
-            $this->fine_amount <= 0 => FineStatus::None,
-            $this->fine_waived_at !== null => FineStatus::Waived,
-            $this->fine_paid_at !== null => FineStatus::Paid,
-            default => FineStatus::Unpaid,
-        });
+        return Attribute::get(fn (): FineStatus => FineStatus::derive(
+            (int) $this->fine_amount,
+            $this->fine_paid_at,
+            $this->fine_waived_at,
+        ));
     }
 
     /** Hari telat: hasil snapshot untuk pinjaman tertutup, hitungan berjalan untuk yang masih terbuka. */

@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use Carbon\CarbonInterface;
+
 /**
  * Status denda diturunkan dari kolom, bukan disimpan:
  *  - None   : pinjaman tidak menghasilkan denda
@@ -15,6 +17,27 @@ enum FineStatus: string
     case Unpaid = 'belum_lunas';
     case Paid = 'lunas';
     case Waived = 'dibebaskan';
+
+    /** Satu-satunya tempat status diturunkan dari kolom pinjaman. */
+    public static function derive(int $amount, ?CarbonInterface $paidAt, ?CarbonInterface $waivedAt): self
+    {
+        return match (true) {
+            $amount <= 0 => self::None,
+            $waivedAt !== null => self::Waived,
+            $paidAt !== null => self::Paid,
+            default => self::Unpaid,
+        };
+    }
+
+    public function canBeSettled(): bool
+    {
+        return $this === self::Unpaid;
+    }
+
+    public function canBeWaived(): bool
+    {
+        return $this === self::Unpaid;
+    }
 
     public function label(): string
     {

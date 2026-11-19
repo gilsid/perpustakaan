@@ -70,12 +70,6 @@ class User extends Authenticatable
         return $until !== null && $this->asDateTime($until)->isFuture();
     }
 
-    /** Total denda yang masih menjadi tagihan terbuka. */
-    public function unpaidFineTotal(): int
-    {
-        return (int) $this->loans()->unpaidFine()->sum('fine_amount');
-    }
-
     /** @return BelongsToMany<Book, $this> */
     public function favorites(): BelongsToMany
     {

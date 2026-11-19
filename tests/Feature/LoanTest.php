@@ -161,11 +161,12 @@ class LoanTest extends TestCase
 
     public function test_an_overdue_loan_within_the_grace_period_has_no_late_days(): void
     {
-        $loan = Loan::factory()->make(['due_at' => now()->subHours(2)]);
+        $due = now()->subHours(2);
+        $loan = Loan::factory()->make(['due_at' => $due]);
 
         $this->assertSame('berakhir', $loan->status->value);
         $this->assertSame(0, $loan->days_late);
-        $this->assertSame(now()->subHours(2)->addDay()->toDateTimeString(), $loan->grace_ends_at->toDateTimeString());
+        $this->assertSame($due->addDay()->toDateTimeString(), $loan->grace_ends_at->toDateTimeString());
     }
 
     public function test_due_soon_scope_selects_loans_nearing_the_due_date(): void
