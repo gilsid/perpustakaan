@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Exceptions\LoanException;
 use App\Models\Book;
 use App\Services\LoanService;
-use App\Support\Rupiah;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -43,26 +42,11 @@ class LoanController extends Controller
     public function destroy(Request $request, Book $book): RedirectResponse
     {
         try {
-            $loan = $this->loans->giveBack($request->user(), $book);
+            $closure = $this->loans->giveBack($request->user(), $book);
         } catch (LoanException $e) {
             return back()->with('error', $e->getMessage());
         }
 
-        $message = 'Buku dikembalikan.';
-
-        // Denda bisa nol walau telat (mis. tarif 0), jadi pesan mengikuti hari telat,
-        // bukan nominal — skorsing tetap perlu diberitahukan.
-        if ($loan->late_days > 0) {
-            if ($loan->fine_amount > 0) {
-                $message .= ' Denda '.Rupiah::format($loan->fine_amount)." ({$loan->late_days} hari telat).";
-            }
-
-            $until = $request->user()->fresh()->suspend_until;
-            if ($until !== null && $until->isFuture()) {
-                $message .= ' Akun diskors sampai '.$until->translatedFormat('j M Y').'.';
-            }
-        }
-
-        return back()->with('success', $message);
+        return back()->with('success', $closure->memberMessage());
     }
 }

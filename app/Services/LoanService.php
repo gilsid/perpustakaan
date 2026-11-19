@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\Book;
 use App\Models\Loan;
 use App\Models\User;
+use App\Support\LoanClosure;
 use App\Support\Rupiah;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -55,9 +56,9 @@ class LoanService
      *
      * @throws LoanException
      */
-    public function giveBack(User $user, Book $book): Loan
+    public function giveBack(User $user, Book $book): LoanClosure
     {
-        return DB::transaction(function () use ($user, $book): Loan {
+        return DB::transaction(function () use ($user, $book): LoanClosure {
             // Kunci anggota lebih dulu (urutan sama dengan borrow) agar pengembalian dan
             // peminjaman bersamaan tidak saling mengunci terbalik.
             User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
@@ -79,9 +80,9 @@ class LoanService
      *
      * @throws LoanException
      */
-    public function endByAdmin(Loan $loan, User $admin): Loan
+    public function endByAdmin(Loan $loan, User $admin): LoanClosure
     {
-        return DB::transaction(function () use ($loan, $admin): Loan {
+        return DB::transaction(function () use ($loan, $admin): LoanClosure {
             $locked = Loan::query()->whereKey($loan->id)->lockForUpdate()->first()
                 ?? throw new LoanException('Pinjaman tidak ditemukan.');
 
@@ -89,11 +90,11 @@ class LoanService
                 throw new LoanException('Pinjaman tidak ditemukan atau sudah selesai.');
             }
 
-            $closed = $this->closeLoan($locked, $admin);
+            $closure = $this->closeLoan($locked, $admin);
 
-            ActivityLog::record('finish_loan', 'loan', $closed->id, "Mengakhiri pinjaman #{$closed->id} (buku #{$closed->book_id}, anggota #{$closed->user_id})", $admin);
+            ActivityLog::record('finish_loan', 'loan', $closure->loan->id, "Mengakhiri pinjaman #{$closure->loan->id} (buku #{$closure->loan->book_id}, anggota #{$closure->loan->user_id})", $admin);
 
-            return $closed;
+            return $closure;
         });
     }
 
@@ -168,7 +169,7 @@ class LoanService
      *
      * @throws LoanException
      */
-    private function closeLoan(Loan $loan, User $actor): Loan
+    private function closeLoan(Loan $loan, User $actor): LoanClosure
     {
         $closed = $this->fines->assess($loan, now());
 
@@ -184,6 +185,6 @@ class LoanService
             );
         }
 
-        return $closed;
+        return new LoanClosure($closed, $closed->user()->first()?->suspend_until);
     }
 }

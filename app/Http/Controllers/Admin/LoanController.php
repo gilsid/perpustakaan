@@ -8,7 +8,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Loan;
 use App\Services\LoanService;
 use App\Support\Query;
-use App\Support\Rupiah;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -49,13 +48,11 @@ class LoanController extends Controller
     public function update(Request $request, Loan $loan): RedirectResponse
     {
         try {
-            $closed = $this->loans->endByAdmin($loan, $request->user());
+            $closure = $this->loans->endByAdmin($loan, $request->user());
         } catch (LoanException $e) {
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', $closed->fine_amount > 0
-            ? 'Pinjaman diakhiri. Denda '.Rupiah::format($closed->fine_amount)." ({$closed->late_days} hari telat) dicatat."
-            : 'Pinjaman diakhiri.');
+        return back()->with('success', $closure->adminMessage());
     }
 }
