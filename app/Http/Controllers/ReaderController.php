@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Book;
-use App\Models\Loan;
 use App\Services\BookMedia;
+use App\Services\LoanAccess;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,7 +13,10 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ReaderController extends Controller
 {
-    public function __construct(private readonly BookMedia $media) {}
+    public function __construct(
+        private readonly BookMedia $media,
+        private readonly LoanAccess $access,
+    ) {}
 
     /** Halaman pembaca (membungkus PDF dalam iframe). */
     public function show(Request $request, Book $book): View|RedirectResponse
@@ -26,7 +29,7 @@ class ReaderController extends Controller
 
         $loan = $request->user()->isAdmin()
             ? null
-            : Loan::query()->where('user_id', $request->user()->id)->where('book_id', $book->id)->active()->first();
+            : $this->access->activeFor($request->user(), $book);
 
         return view('books.reader', ['book' => $book, 'loan' => $loan]);
     }

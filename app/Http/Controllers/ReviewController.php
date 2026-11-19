@@ -5,20 +5,22 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreReviewRequest;
 use App\Models\ActivityLog;
 use App\Models\Book;
-use App\Models\Loan;
 use App\Models\Review;
+use App\Services\LoanAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 
 class ReviewController extends Controller
 {
+    public function __construct(private readonly LoanAccess $access) {}
+
     /** Menulis atau mengubah ulasan (satu per anggota per buku). */
     public function store(StoreReviewRequest $request, Book $book): RedirectResponse
     {
         $user = $request->user();
         $target = route('books.show', $book).'#ulasan';
 
-        if (config('library.review_requires_loan') && ! Loan::query()->where('user_id', $user->id)->where('book_id', $book->id)->exists()) {
+        if (config('library.review_requires_loan') && ! $this->access->hasBorrowed($user, $book)) {
             return redirect($target)->with('error', 'Pinjam buku ini dulu untuk bisa menulis ulasan.');
         }
 

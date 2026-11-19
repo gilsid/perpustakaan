@@ -17,6 +17,7 @@ class LoanService
     public function __construct(
         private readonly FineCalculator $fines,
         private readonly LoanClock $clock,
+        private readonly LoanAccess $access,
     ) {}
 
     /**
@@ -114,7 +115,7 @@ class LoanService
      */
     public function renew(User $user, Book $book): Loan
     {
-        $loan = Loan::query()->where('user_id', $user->id)->where('book_id', $book->id)->active()->first()
+        $loan = $this->access->activeFor($user, $book)
             ?? throw new LoanException('Tidak ada pinjaman aktif untuk diperpanjang.');
 
         $max = (int) config('library.loan.max_renewals');

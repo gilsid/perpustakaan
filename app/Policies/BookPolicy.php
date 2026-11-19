@@ -3,11 +3,13 @@
 namespace App\Policies;
 
 use App\Models\Book;
-use App\Models\Loan;
 use App\Models\User;
+use App\Services\LoanAccess;
 
 class BookPolicy
 {
+    public function __construct(private readonly LoanAccess $access) {}
+
     /** Membaca PDF: admin selalu boleh; anggota hanya saat pinjamannya aktif. */
     public function read(User $user, Book $book): bool
     {
@@ -15,7 +17,6 @@ class BookPolicy
             return false;
         }
 
-        return $user->isAdmin()
-            || Loan::query()->where('user_id', $user->id)->where('book_id', $book->id)->active()->exists();
+        return $user->isAdmin() || $this->access->activeFor($user, $book) !== null;
     }
 }

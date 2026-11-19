@@ -5,13 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\Book;
 use App\Models\Loan;
 use App\Models\Review;
+use App\Services\LoanAccess;
 use App\Services\LoanService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 
 class BookController extends Controller
 {
-    public function __construct(private readonly LoanService $loans) {}
+    public function __construct(
+        private readonly LoanService $loans,
+        private readonly LoanAccess $access,
+    ) {}
 
     public function show(Request $request, Book $book): View
     {
@@ -19,10 +23,10 @@ class BookController extends Controller
         $user = $request->user();
         $isMember = $user?->isMember() ?? false;
 
-        $activeLoan = $isMember ? Loan::query()->where('user_id', $user->id)->where('book_id', $book->id)->active()->first() : null;
+        $activeLoan = $isMember ? $this->access->activeFor($user, $book) : null;
         $myReview = $isMember ? Review::query()->where('user_id', $user->id)->where('book_id', $book->id)->first() : null;
         $canReview = $isMember && (! config('library.review_requires_loan')
-            || Loan::query()->where('user_id', $user->id)->where('book_id', $book->id)->exists());
+            || $this->access->hasBorrowed($user, $book));
         $blockReasons = $isMember && $activeLoan === null ? $this->loans->blockReasons($user) : [];
 
         $distribution = array_fill_keys([5, 4, 3, 2, 1], 0);
