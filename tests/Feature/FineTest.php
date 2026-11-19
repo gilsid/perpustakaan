@@ -254,6 +254,32 @@ class FineTest extends TestCase
             ->assertSee('Kembalikan sekarang');
     }
 
+    public function test_an_overdue_loan_inside_the_grace_period_is_not_called_late(): void
+    {
+        $user = $this->member();
+        Loan::factory()->create([
+            'user_id' => $user->id,
+            'book_id' => Book::factory()->withPdf()->create()->id,
+            'borrowed_at' => now()->subDays(15),
+            'due_at' => now()->subHours(2),
+        ]);
+
+        $this->actingAs($user)->get('/pinjaman')->assertOk()
+            ->assertSee('masih dalam masa tenggang')
+            ->assertSee('Denda mulai')
+            ->assertDontSee('hari telat');
+    }
+
+    public function test_my_loans_page_calls_a_loan_late_once_the_grace_period_ends(): void
+    {
+        $user = $this->member();
+        $this->overdueLoan($user);
+
+        $this->actingAs($user)->get('/pinjaman')->assertOk()
+            ->assertSee('3 hari telat')
+            ->assertDontSee('masih dalam masa tenggang');
+    }
+
     public function test_book_page_explains_why_borrowing_is_blocked(): void
     {
         $user = $this->member();

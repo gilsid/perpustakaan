@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\FineStatus;
 use App\Enums\LoanStatus;
+use App\Services\LoanClock;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -64,7 +65,7 @@ class Loan extends Model
 
     public function scopeExpired(Builder $query): void
     {
-        $query->whereNull('returned_at')->where('due_at', '<=', now());
+        $query->overdue();
     }
 
     public function scopeReturned(Builder $query): void
@@ -86,10 +87,10 @@ class Loan extends Model
         $query->whereNull('returned_at')->where('due_at', '<=', now());
     }
 
-    /** Riwayat = sudah dikembalikan atau sudah berakhir. */
-    public function scopeFinished(Builder $query): void
+    /** Pinjaman aktif yang tenggatnya sebentar lagi. */
+    public function scopeDueSoon(Builder $query): void
     {
-        $query->where(fn (Builder $q) => $q->whereNotNull('returned_at')->orWhere('due_at', '<=', now()));
+        $query->where('due_at', '<=', app(LoanClock::class)->dueSoonCutoff(now()));
     }
 
     public function scopeWithStatus(Builder $query, ?LoanStatus $status): void
@@ -108,15 +109,26 @@ class Loan extends Model
     {
         return Attribute::get(fn (): LoanStatus => match (true) {
             $this->returned_at !== null => LoanStatus::Returned,
-            $this->due_at->isFuture() => LoanStatus::Active,
-            default => LoanStatus::Expired,
+            $this->clock()->isOverdue($this->due_at, now()) => LoanStatus::Expired,
+            default => LoanStatus::Active,
         });
     }
 
     /** Sisa hari (dibulatkan ke atas); ≤ 0 bila tenggat sudah lewat. */
     protected function daysLeft(): Attribute
     {
-        return Attribute::get(fn (): int => (int) ceil(($this->due_at->getTimestamp() - time()) / 86400));
+        return Attribute::get(fn (): int => $this->clock()->daysLeft($this->due_at, now()));
+    }
+
+    protected function isDueSoon(): Attribute
+    {
+        return Attribute::get(fn (): bool => $this->clock()->isDueSoon($this->due_at, now()));
+    }
+
+    /** Akhir masa tenggang; denda mulai dihitung setelah waktu ini. */
+    protected function graceEndsAt(): Attribute
+    {
+        return Attribute::get(fn () => $this->clock()->graceEndsAt($this->due_at));
     }
 
     protected function daysLeftLabel(): Attribute
@@ -129,8 +141,9 @@ class Loan extends Model
     {
         return Attribute::get(function (): int {
             $total = max(1, $this->due_at->getTimestamp() - $this->borrowed_at->getTimestamp());
+            $used = now()->getTimestamp() - $this->borrowed_at->getTimestamp();
 
-            return (int) min(100, max(0, round((time() - $this->borrowed_at->getTimestamp()) / $total * 100)));
+            return (int) min(100, max(0, round($used / $total * 100)));
         });
     }
 
@@ -152,10 +165,13 @@ class Loan extends Model
     /** Hari telat: hasil snapshot untuk pinjaman tertutup, hitungan berjalan untuk yang masih terbuka. */
     protected function daysLate(): Attribute
     {
-        return Attribute::get(fn (): int => match (true) {
-            $this->returned_at !== null => $this->late_days,
-            $this->due_at->isPast() => (int) ceil((time() - $this->due_at->getTimestamp()) / 86400),
-            default => 0,
-        });
+        return Attribute::get(fn (): int => $this->returned_at !== null
+            ? $this->late_days
+            : $this->clock()->lateDays($this->due_at, now()));
+    }
+
+    private function clock(): LoanClock
+    {
+        return app(LoanClock::class);
     }
 }

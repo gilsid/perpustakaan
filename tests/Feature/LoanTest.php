@@ -148,6 +148,34 @@ class LoanTest extends TestCase
         $this->assertSame(13, Loan::factory()->make(['due_at' => now()->addDays(13)->subMinute()])->days_left);
     }
 
+    public function test_the_due_soon_window_comes_from_config(): void
+    {
+        $loan = Loan::factory()->make(['due_at' => now()->addDays(2)]);
+
+        $this->assertTrue($loan->is_due_soon);
+
+        config(['library.loan.due_soon_days' => 1]);
+
+        $this->assertFalse($loan->is_due_soon);
+    }
+
+    public function test_an_overdue_loan_within_the_grace_period_has_no_late_days(): void
+    {
+        $loan = Loan::factory()->make(['due_at' => now()->subHours(2)]);
+
+        $this->assertSame('berakhir', $loan->status->value);
+        $this->assertSame(0, $loan->days_late);
+        $this->assertSame(now()->subHours(2)->addDay()->toDateTimeString(), $loan->grace_ends_at->toDateTimeString());
+    }
+
+    public function test_due_soon_scope_selects_loans_nearing_the_due_date(): void
+    {
+        $soon = Loan::factory()->create(['due_at' => now()->addDays(2)]);
+        Loan::factory()->create(['due_at' => now()->addDays(10)]);
+
+        $this->assertSame([$soon->id], Loan::active()->dueSoon()->pluck('id')->all());
+    }
+
     public function test_my_loans_page_lists_active_loans_and_history(): void
     {
         $user = $this->member();

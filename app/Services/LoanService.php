@@ -14,7 +14,10 @@ use Illuminate\Support\Facades\DB;
 
 class LoanService
 {
-    public function __construct(private readonly FineCalculator $fines) {}
+    public function __construct(
+        private readonly FineCalculator $fines,
+        private readonly LoanClock $clock,
+    ) {}
 
     /**
      * @throws LoanException
@@ -220,7 +223,7 @@ class LoanService
     private function closeLoan(Loan $loan, User $actor): Loan
     {
         $returnedAt = now();
-        $lateDays = $this->fines->lateDays($loan->due_at, $returnedAt);
+        $lateDays = $this->clock->lateDays($loan->due_at, $returnedAt);
         $amount = $this->fines->amount($lateDays, $loan->fine_rate);
 
         $loan->update([

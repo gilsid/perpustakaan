@@ -25,7 +25,7 @@ class DashboardController extends Controller
             'members' => User::where('role', UserRole::Member)->count(),
             'reviewCount' => Review::count(),
             'activeLoans' => Loan::active()->count(),
-            'expiring' => Loan::active()->where('due_at', '<', now()->addDays(3))->count(),
+            'expiring' => Loan::active()->dueSoon()->count(),
             // Peminjaman per hari selama 14 hari terakhir (zona waktu aplikasi).
             'perDay' => collect(DB::select(
                 'SELECT d::date AS day, count(l.id) AS n

@@ -11,6 +11,7 @@ return [
         'days' => (int) env('LOAN_DAYS', 14),
         'max_active' => (int) env('LOAN_MAX_ACTIVE', 5),
         'max_renewals' => (int) env('LOAN_MAX_RENEWALS', 1),
+        'due_soon_days' => (int) env('LOAN_DUE_SOON_DAYS', 3),
     ],
 
     /*

@@ -2,33 +2,17 @@
 
 namespace App\Services;
 
-use Carbon\CarbonInterface;
-
 /**
- * Perhitungan denda keterlambatan. Murni: tidak menyentuh database maupun waktu sistem,
- * sehingga seluruh aturan bisa diuji tanpa fixture.
+ * Nominal denda. Sumber hari telat ada di LoanClock; kelas ini hanya mengurus
+ * uang, sehingga batas grace dan cap tidak tercampur.
  */
 final class FineCalculator
 {
-    public function __construct(
-        private readonly int $graceHours,
-        private readonly int $maxAmount,
-    ) {}
+    public function __construct(private readonly int $maxAmount) {}
 
     public static function fromConfig(): self
     {
-        return new self(
-            graceHours: (int) config('library.fine.grace_hours'),
-            maxAmount: (int) config('library.fine.max'),
-        );
-    }
-
-    /** Jumlah hari telat (dibulatkan ke atas) setelah dikurangi masa tenggang. */
-    public function lateDays(CarbonInterface $dueAt, CarbonInterface $returnedAt): int
-    {
-        $lateSeconds = $returnedAt->getTimestamp() - $dueAt->getTimestamp() - ($this->graceHours * 3600);
-
-        return max(0, (int) ceil($lateSeconds / 86400));
+        return new self(maxAmount: (int) config('library.fine.max'));
     }
 
     /** Nominal denda, dibatasi cap maksimum. Tarif berasal dari snapshot pinjaman. */

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Services\FineCalculator;
+use App\Services\LoanClock;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Carbon;
@@ -15,7 +16,8 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // FineCalculator memakai argumen primitif, jadi dirakit dari config secara eksplisit.
+        // Keduanya memakai argumen primitif, jadi dirakit dari config secara eksplisit.
+        $this->app->bind(LoanClock::class, fn (): LoanClock => LoanClock::fromConfig());
         $this->app->bind(FineCalculator::class, fn (): FineCalculator => FineCalculator::fromConfig());
     }
 

@@ -21,8 +21,8 @@
                         <div class="loan__body">
                             <h3><a href="{{ route('books.show', $l->book) }}">{{ $l->book->title }}</a></h3>
                             <p class="muted">{{ $l->book->author }}</p>
-                            <p class="loan__due is-soon"><x-icon name="alert" />Lewat tenggat {{ $l->due_at->translatedFormat('j M Y') }} · {{ $l->days_late }} hari</p>
-                            <p class="hint">Denda dihitung saat buku dikembalikan.</p>
+                            <p class="loan__due is-soon"><x-icon name="alert" />Lewat tenggat {{ $l->due_at->translatedFormat('j M Y') }} · @if ($l->days_late > 0){{ $l->days_late }} hari telat @else masih dalam masa tenggang @endif</p>
+                            <p class="hint">@if ($l->days_late > 0)Denda dihitung saat buku dikembalikan.@else Denda mulai {{ $l->grace_ends_at->translatedFormat('j M Y, H.i') }}.@endif</p>
                         </div>
                         <div class="loan__actions">
                             <form method="post" action="{{ route('loans.destroy', $l->book) }}" data-confirm="Kembalikan “{{ $l->book->title }}”? Denda keterlambatan akan dicatat." data-confirm-label="Kembalikan">@csrf @method('DELETE')<button class="btn btn--ghost" type="submit">Kembalikan sekarang</button></form>
@@ -48,7 +48,7 @@
                         <div class="loan__body">
                             <h3><a href="{{ route('books.show', $l->book) }}">{{ $l->book->title }}</a></h3>
                             <p class="muted">{{ $l->book->author }}</p>
-                            <p @class(['loan__due', 'is-soon' => $l->days_left <= 3])><x-icon name="clock" />Berakhir {{ $l->due_at->translatedFormat('j M Y') }} · {{ $l->days_left_label }}</p>
+                            <p @class(['loan__due', 'is-soon' => $l->is_due_soon])><x-icon name="clock" />Berakhir {{ $l->due_at->translatedFormat('j M Y') }} · {{ $l->days_left_label }}</p>
                             <progress class="loan__progress" max="100" value="{{ $l->elapsed_percent }}" aria-label="Masa pinjam terpakai"></progress>
                         </div>
                         <div class="loan__actions">
