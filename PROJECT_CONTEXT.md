@@ -83,7 +83,7 @@ Kompleksitas: **R** = rendah, **S** = sedang, **T** = tinggi.
 | Fitur | Deskripsi singkat | File/halaman terkait | Komp. | Ketergantungan |
 |---|---|---|---|---|
 | Halaman home | 6 buku terbaru, 6 berating tertinggi, daftar kategori + jumlah, statistik judul/digital | `HomeController.php`, `home.blade.php` | R | Model Book |
-| Katalog + pencarian | Pencarian `ILIKE` pada judul/penulis/ISBN/penerbit (dengan indeks `pg_trgm`); relevansi mengurutkan judul > penulis | `CatalogController.php`, `app/Support/CatalogFilters.php`, `Book::scopeFilter`, `catalog/index.blade.php` | S–T | Skema DB, indeks trgm |
+| Katalog + pencarian | Pencarian `ILIKE` pada judul/penulis/ISBN/penerbit (dengan indeks `pg_trgm`); relevansi mengurutkan judul > penulis. Pola pencarian dan escape `%`/`_` dipusatkan di `SearchTerm` | `CatalogController.php`, `app/Support/CatalogFilters.php`, `app/Support/SearchTerm.php`, `Book::scopeFilter`, `catalog/index.blade.php` | S–T | Skema DB, indeks trgm |
 | Filter & urutan katalog | Filter: kategori (dengan hitungan per kategori), rentang tahun terbit, bahasa, "hanya digital". Urutan: relevan, terbaru, judul A–Z, rating, tahun, terpopuler. Paginasi 12/halaman, kustom `vendor/pagination/library` | `Book::scopeSortedBy`, `app/Enums/CatalogSort.php`, `config/library.php` (`per_page`) | S | Fitur sebelumnya |
 | Daftar kategori | Halaman `/kategori` | `CategoryController.php`, `categories/index.blade.php` | R | Tabel `categories` |
 | Detail buku | Info lengkap (penulis, ISBN, penerbit, tahun, bahasa, halaman, nomor klasifikasi, deskripsi), rating rata-rata + jumlah ulasan + jumlah peminjaman dalam 1 query (`withStats`), daftar ulasan, aksi pinjam/favorit/ulas | `BookController.php`, `books/show.blade.php`, `books/_favorite.blade.php` | S | Katalog, fitur pinjam/ulas/favorit |
@@ -93,14 +93,14 @@ Kompleksitas: **R** = rendah, **S** = sedang, **T** = tinggi.
 
 | Fitur | Deskripsi singkat | File/halaman terkait | Komp. | Ketergantungan |
 |---|---|---|---|---|
-| Pinjam buku | Hanya buku ber-PDF; aturan dari `config/library.php`/`.env`: **14 hari**, **maks. 5 pinjaman aktif**, transaksional + `lockForUpdate` untuk mencegah race; anti duplikat via **unique index parsial** di database. Pinjaman yang lewat tenggat **tetap terbuka** dan memblokir peminjaman baru sampai dikembalikan | `app/Services/LoanService.php::borrow`, `LoanController.php`, `app/Exceptions/LoanException.php` | **T** | Tabel `loans`, Book, Auth |
+| Pinjam buku | Hanya buku ber-PDF; aturan dari `config/library.php`/`.env`: **14 hari**, **maks. 5 pinjaman aktif**, transaksional + `lockForUpdate` untuk mencegah race; anti duplikat via **unique index parsial** di database. Pinjaman yang lewat tenggat **tetap terbuka** dan memblokir peminjaman baru sampai dikembalikan | `app/Services/LoanService.php::borrow`, `app/Services/BorrowEligibility.php`, `app/Services/LoanAccess.php`, `LoanController.php`, `app/Exceptions/LoanException.php` | **T** | Tabel `loans`, Book, Auth |
 | Perpanjangan (renew) | Maks. 1× per pinjaman (dikonfigurasi), menambah durasi standar | `LoanService::renew`, `LoanController::update` | S | Pinjam |
-| Pengembalian mandiri | Anggota menandai sendiri buku dikembalikan; akses PDF langsung tertutup; **denda dihitung saat itu** bila melewati tenggat | `LoanService::giveBack`, `LoanController::destroy`, `app/Services/FineCalculator.php` | S | Pinjam |
-| Status pinjaman turunan | Status **tidak disimpan**: Aktif (belum kembali, tenggat di masa depan), Berakhir (tenggat lewat → akses otomatis tertutup), Selesai (dikembalikan) — via `app/Enums/LoanStatus.php` + scope `active/expired/returned/finished/overdue` | `app/Models/Loan.php`, `app/Enums/LoanStatus.php` | S | Skema `loans` |
-| Denda keterlambatan | Tarif di-**snapshot** ke pinjaman saat meminjam (`fine_rate`); hitung hari telat setelah masa tenggang 24 jam, dibulatkan ke atas, dibatasi cap. Nominal disimpan saat pinjaman ditutup | `app/Services/FineCalculator.php`, `LoanService::closeLoan`, kolom `fine_*` di `loans` | **T** | Pinjam, `config/library.php` |
-| Skorsing otomatis | Telat N hari → `users.suspend_until` = sekarang + `hari × faktor` (cap 30 hari). Skorsing memblokir pinjaman baru | `LoanService::applySuspension`, `User::isSuspended` | S | Denda |
-| Pemblokiran peminjaman | Anggota tidak bisa meminjam bila: (a) diskors, (b) punya denda belum lunas, atau (c) punya pinjaman lewat tenggat. Alasan ditampilkan di halaman detail buku | `LoanService::blockReasons`, `BookController` | S | Denda, Skorsing |
-| Pelunasan & pembebasan denda | Admin menandai **lunas penuh** atau **membebaskan** dengan alasan wajib (≥5 karakter); pembebasan sekaligus mencabut skorsing. Nominal asli tetap tersimpan untuk audit | `Admin/LoanFineController.php`, `LoanService::settleFine/waiveFine`, `ActivityLog` | **T** | Denda |
+| Pengembalian mandiri | Anggota menandai sendiri buku dikembalikan; akses PDF langsung tertutup; **denda dihitung saat itu** bila melewati tenggat. Hasilnya `LoanClosure`, yang juga menyusun pesan anggota/admin | `LoanService::giveBack`, `app/Services/FineService.php`, `app/Support/LoanClosure.php`, `LoanController::destroy` | S | Pinjam |
+| Status pinjaman turunan | Status **tidak disimpan**: Aktif (belum kembali, tenggat di masa depan), Berakhir (tenggat lewat → akses otomatis tertutup), Selesai (dikembalikan) — via `app/Enums/LoanStatus.php` + scope `active/expired/returned/overdue/dueSoon`. Batas waktu (tenggat, masa tenggang, hari telat, jendela due-soon) dimiliki `LoanClock` | `app/Models/Loan.php`, `app/Enums/LoanStatus.php`, `app/Services/LoanClock.php` | S | Skema `loans` |
+| Denda keterlambatan | Tarif di-**snapshot** ke pinjaman saat meminjam (`fine_rate`); hitung hari telat setelah masa tenggang 24 jam, dibulatkan ke atas, dibatasi cap. Nominal disimpan saat pinjaman ditutup. Aritmetika murni di `FinePolicy`, siklus database di `FineService` | `app/Services/FinePolicy.php`, `app/Services/FineService.php`, `LoanService::closeLoan`, kolom `fine_*` di `loans` | **T** | Pinjam, `config/library.php` |
+| Skorsing otomatis | Telat N hari → `users.suspend_until` = sekarang + `hari × faktor` (cap 30 hari). Skorsing memblokir pinjaman baru dan dicabut saat denda dibebaskan | `FineService::assess/waive`, `User::isSuspended` | S | Denda |
+| Pemblokiran peminjaman | Anggota tidak bisa meminjam bila: (a) buku tanpa PDF, (b) sudah meminjam buku yang sama, (c) diskors, (d) punya denda belum lunas, (e) punya pinjaman lewat tenggat, atau (f) kuota penuh. Alasan bertipe (`BorrowBlock`) dan ditampilkan di halaman buku/rak | `app/Services/BorrowEligibility.php`, `app/Support/BorrowBlock.php`, `app/Support/BorrowStanding.php`, `BookController` | S | Denda, Skorsing |
+| Pelunasan & pembebasan denda | Admin menandai **lunas penuh** atau **membebaskan** dengan alasan wajib (≥5 karakter); pembebasan sekaligus mencabut skorsing. Nominal asli tetap tersimpan untuk audit | `Admin/LoanFineController.php`, `LoanService::settleFine/waiveFine`, `app/Services/FineService.php`, `app/Services/Audit.php` | **T** | Denda |
 | Daftar pinjaman anggota | Halaman `/pinjaman`: aktif, **terlambat (dengan tombol kembalikan)**, riwayat + status denda | `Account/LoanController.php`, `account/loans.blade.php`, komponen tab akun | R | Pinjam, Denda |
 
 ### 2.3a Denda & skorsing
@@ -120,7 +120,7 @@ Aturan (semua lewat `.env`, lihat `config/library.php`):
 - **Skorsing** mulai dihitung saat pinjaman dikembalikan (atau diakhiri admin), bukan saat tenggat lewat.
 - Pinjaman yang sudah lewat tenggat **tidak** ditutup otomatis; baris tetap terbuka sebagai bukti keterlambatan. Sebelum fitur ini aktif, migration menutup semua pinjaman telat lama dengan `returned_at = due_at` agar tidak ada tagihan mundur.
 - Pinjaman yang **masih berjalan** saat migration dijalankan diisi `fine_rate` dengan tarif aktif, supaya pengembalian telat setelah fitur aktif tidak menghasilkan denda Rp0.
-- Alur uang: tunai di luar aplikasi → admin klik **Lunas**. Jika dibebaskan, nominal asli tetap tercatat dan `ActivityLog` menyimpan alasannya.
+- Alur uang: tunai di luar aplikasi → admin klik **Lunas**. Jika dibebaskan, nominal asli tetap tercatat dan `Audit` menyimpan alasannya.
 - Kolom terkait: `loans.fine_rate`, `late_days`, `fine_amount`, `fine_paid_at`, `fine_waived_at`, `fine_waived_by`; `users.suspend_until`. Status denda diturunkan (`FineStatus`) dan tidak disimpan.
 
 ### 2.4 Pembaca PDF (reader)
@@ -149,7 +149,7 @@ Aturan (semua lewat `.env`, lihat `config/library.php`):
 | CRUD kategori | Nama + slug unik; hapus diproteksi FK `restrict` jika masih dipakai buku | `Admin/CategoryController.php`, `Http/Requests/Admin/CategoryRequest.php`, `admin/categories.blade.php` | R | Tabel `categories` |
 | Kelola peminjaman | Daftar semua pinjaman, filter status (aktif/berakhir/selesai), cari nama/email anggota atau judul buku, 20/halaman; **tandai selesai** (menutup akses PDF) | `Admin/LoanController.php`, `admin/loans.blade.php` | S | Loan |
 | Kelola pengguna | Daftar pengguna; aktif/nonaktif; ubah peran member↔admin; **reset sandi → sandi sementara + wajib ganti**; proteksi: admin tidak bisa menonaktifkan/menurunkan dirinya sendiri dan admin aktif terakhir; semua aksi dicatat di log | `Admin/UserController.php`, `UserStatusController.php`, `UserRoleController.php`, `UserPasswordResetController.php`, `admin/users.blade.php` | **T** | Auth, middleware akun |
-| Log aktivitas | Tabel `activity_logs`: aksi, entitas, pesan, IP, pelaku; tercatat: daftar, tambah/ubah/hapus buku & kategori, akhir pinjaman, ubah peran, reset sandi, aktif/nonaktif akun, hapus ulasan, registrasi | `app/Models/ActivityLog.php`, `Admin/ActivityLogController.php`, `admin/logs.blade.php` | R | Semua aksi admin |
+| Log aktivitas | Tabel `activity_logs`: aksi bertipe (`ActivityAction`), entitas, pesan, IP, pelaku; ditulis lewat modul `Audit` dengan nama kejadian domain. Tercatat: registrasi, tambah/ubah/hapus buku & kategori, pinjam/perpanjang/kembali/akhir pinjaman, penilaian/pelunasan/pembebasan denda, ubah peran, reset sandi, aktif/nonaktif akun, hapus ulasan. Label aksi ditampilkan di tabel, kode mentah tetap tersimpan | `app/Enums/ActivityAction.php`, `app/Services/Audit.php`, `app/Models/ActivityLog.php`, `Admin/ActivityLogController.php`, `admin/logs.blade.php` | R | Semua aksi admin |
 | Dashboard admin | Statistik: jumlah judul, judul digital, anggota, ulasan, pinjaman aktif, pinjaman yang tenggatnya ≤3 hari; **grafik peminjaman 14 hari terakhir** (SQL `generate_series`, zona waktu aplikasi); top 5 buku terpinjam; log terbaru; pinjaman terbaru | `Admin/DashboardController.php`, `admin/dashboard.blade.php` | S | Loan, Book, log aktivitas |
 | Layar error kustom | 403/404/405/419/429/500/503; `PostTooLargeException` kembali ke form dengan pesan jelas (bukan halaman 413 kosong) | `resources/views/errors/*`, `bootstrap/app.php` | R | Desain |
 
@@ -160,7 +160,7 @@ Aturan (semua lewat `.env`, lihat `config/library.php`):
 | Header keamanan + CSP | CSP tanpa `unsafe-inline` dan tanpa sumber eksternal; `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, HSTS saat HTTPS; dukungan Vite HMR di dev | `Http/Middleware/SecurityHeaders.php` | S | — |
 | Validasi unggahan | Validasi dari **isi** berkas (aturan `image`, `mimetypes`, `PdfSignature`), bukan hanya ekstensi; sampul re-encode; resolusi maks 40 MP; pesan batas PHP yang jelas | `BookMedia.php`, `PdfSignature.php`, `BookRequest.php` | S | — |
 | Integritas data di DB | Foreign key dengan `cascade/restrict/null`, `CHECK`, `UNIQUE`, unique index parsial (anti pinjaman ganda race condition) | `database/migrations/*` | S | — |
-| Pengujian otomatis | **141 tes** di 14 berkas: Feature (Account, Auth, Catalog, Loan, Fine, Reader, ReviewAndFavorite, SecurityHeaders, CreateAdminCommand, Admin Access/BookManagement/Management) + Unit (CatalogFilters, FineCalculator); disk palsu agar tidak menyentuh `storage/`; butuh PostgreSQL (`ILIKE`, index parsial) | `tests/**` | S–T | Semua fitur |
+| Pengujian otomatis | **195 tes** di 22 berkas: Feature (Account, Audit, Auth, BorrowEligibility, Catalog, Fine, FineService, Loan, LoanAccess, Reader, ReviewAndFavorite, SecurityHeaders, CreateAdminCommand, Admin Access/BookManagement/Management) + Unit (CatalogFilters, FinePolicy, FineStatus, LoanClock, LoanClosure, SearchTerm); disk palsu agar tidak menyentuh `storage/`; butuh PostgreSQL (`ILIKE`, index parsial) | `tests/**` | S–T | Semua fitur |
 
 ---
 
@@ -170,7 +170,7 @@ Aturan (semua lewat `.env`, lihat `config/library.php`):
 
 ```
 app/
-  Enums/               UserRole, LoanStatus, FineStatus, CatalogSort
+  Enums/               UserRole, LoanStatus, FineStatus, CatalogSort, ActivityAction, BorrowBlockReason
   Exceptions/          LoanException
   Http/
     Controllers/       tipis: validasi → service/model → view
@@ -185,8 +185,10 @@ app/
   Policies/            BookPolicy (akses PDF), ReviewPolicy
   Providers/           AppServiceProvider (Gate, locale, pagination, strict mode)
   Rules/               PdfSignature
-  Services/            LoanService, FineCalculator, BookMedia
-  Support/             CatalogFilters, Query (pembantu input), Rupiah (format nominal)
+  Services/            LoanService, LoanClock, LoanAccess, BorrowEligibility, FinePolicy,
+                       FineService, Audit, BookMedia
+  Support/             CatalogFilters, SearchTerm, Query, Rupiah, BorrowBlock,
+                       BorrowStanding, LoanClosure
   Console/Commands/    library:create-admin
 bootstrap/app.php      middleware global, alias, penanganan exception
 config/library.php     aturan pinjam, batas unggah, throttle login, per halaman
@@ -200,11 +202,25 @@ resources/
   css/app.css          CSS murni (tanpa framework)
   js/app.js            JS vanilla: menu, filter autosubmit, toggle sandi, dll.
 routes/web.php         semua rute bernama
-tests/                 Feature + Unit (141 tes)
+tests/                 Feature + Unit (195 tes)
 storage/app/private/books   PDF (di luar web root)
 storage/app/public/covers   sampul (via symlink storage:link)
 docker-compose.yml     PostgreSQL 16 (port host 5433)
 ```
+
+### 3.1a Pemilik aturan domain
+
+Beberapa aturan yang sebelumnya tersebar kini punya satu modul pemilik, supaya perubahan arti cukup dilakukan sekali:
+
+| Aturan | Pemilik | Yang tidak lagi menghitung sendiri |
+|---|---|---|
+| Waktu pinjaman: tenggat, masa tenggang, hari telat, sisa hari, jendela due-soon | `LoanClock` | `Loan`, scope, dashboard, tampilan rak |
+| Akses anggota ke satu buku (pinjaman aktif, pernah pinjam) | `LoanAccess` | halaman buku, reader, `BookPolicy`, perpanjangan, syarat ulasan |
+| Boleh meminjam atau tidak, beserta alasannya | `BorrowEligibility` + `BorrowBlock`/`BorrowStanding` | halaman buku, rak saya, `LoanService::borrow` |
+| Uang denda dan lama skorsing | `FinePolicy` (murni) + `FineService` (siklus DB) | `LoanService`, admin, model `User` |
+| Kalimat hasil penutupan pinjaman | `LoanClosure` | controller anggota dan admin |
+| Jejak audit | `Audit` + `ActivityAction` | seluruh controller dan `LoanService` |
+| Pola pencarian `ILIKE` dan escape wildcard | `SearchTerm` | katalog dan empat indeks admin |
 
 ### 3.2 Alur request
 
@@ -213,7 +229,7 @@ docker-compose.yml     PostgreSQL 16 (port host 5433)
 3. Router `routes/web.php`: rute publik → tamu (`guest`) → `auth` → `auth + password.fresh` → bagian `can:member` → bagian `can:admin` (`/admin`). Rute resource memakai verba Indonesia (`/baru`, `/ubah`).
 4. Controller tipis: **FormRequest** memvalidasi → **Model/Service** (mis. `LoanService`, `BookMedia`) → **view Blade** → response.
 5. PDF dilayani khusus oleh `ReaderController::file` (BinaryFileResponse + Range) setelah `BookPolicy` mengizinkan; sampul dilayani via disk publik (`storage:link`).
-6. Aksi penting admin/registrasi menulis baris ke `activity_logs`.
+6. Aksi penting admin/anggota menulis baris ke `activity_logs` lewat `Audit`; baris ditulis setelah transaksi database selesai.
 
 ### 3.3 Skema database (10 migration; 7 tabel domain + cache/jobs)
 
@@ -292,10 +308,10 @@ Durasi = hari kerja kalender berjalan pada staf yang ditugaskan. Total effort la
 | **4.29** | Implementasi (Ops) | Command `library:create-admin` | 1 | 4 | Backend Programmer | 4.6 |
 | **4.30** | Implementasi (Integrasi) | Integrasi antarmodul, code review, Pint, terjemahan `lang/id` | 3 | 24 | Backend + Frontend, PM | 4.22, 4.23, 4.25, 4.27, 4.28, 4.29 |
 | **4.31** | Implementasi | Perbaikan bug harian selama implementasi (berjalan paralel) | 5 | 20 | Backend + Frontend | 4.10 |
-| **4.32** | Implementasi (Peminjaman) | **Denda & skorsing** (ditambahkan 18 Nov 2026): FineCalculator murni (grace 24 jam, `ceil` hari, cap nominal), snapshot tarif per pinjaman, skorsing otomatis, blokir pinjam 3 sebab, pelunasan/pembebasan denda oleh admin + log, migrasi penutupan pinjaman telat lama | 3 | 24 | Backend + Frontend | 4.19 |
+| **4.32** | Implementasi (Peminjaman) | **Denda & skorsing** (ditambahkan 18 Nov 2026): `FinePolicy` murni (grace 24 jam, `ceil` hari, cap nominal), snapshot tarif per pinjaman, skorsing otomatis, blokir pinjam lewat `BorrowEligibility`, pelunasan/pembebasan denda oleh admin + log, migrasi penutupan pinjaman telat lama | 3 | 24 | Backend + Frontend | 4.19 |
 | **5.1** | Pengujian | Rencana & kasus uji dari SRS *(dapat disusun paralel sejak fase desain)* | 2 | 12 | QA, System Analyst | 2.4 |
-| **5.2** | Pengujian | **Unit test**: CatalogFilters, **FineCalculator** (batas grace, pembulatan, cap), LoanService, BookMedia, PdfSignature | 3 | 24 | QA, Backend Programmer | 4.18, 4.23, 4.32 |
-| **5.3** | Pengujian | **Feature test** (141 skenario): auth, katalog, pinjam, **denda & skorsing**, pembaca, ulasan/favorit, admin, header keamanan, command | 5 | 40 | QA, Backend Programmer | 4.30, 4.32 |
+| **5.2** | Pengujian | **Unit test**: CatalogFilters, **FinePolicy** (batas grace, pembulatan, cap), FineStatus, LoanClock, LoanClosure, SearchTerm, BookMedia, PdfSignature | 3 | 24 | QA, Backend Programmer | 4.18, 4.23, 4.32 |
+| **5.3** | Pengujian | **Feature test** (195 skenario): auth, katalog, pinjam, **denda & skorsing**, pembaca, ulasan/favorit, admin, log audit, header keamanan, command | 5 | 40 | QA, Backend Programmer | 4.30, 4.32 |
 | **5.4** | Pengujian | **Pengujian keamanan**: CSP, CSRF, throttling, unggahan berbahaya, eskalasi peran, akses PDF | 2 | 16 | QA, Backend Programmer | 5.3 |
 | **5.5** | Pengujian | Perbaikan bug hasil pengujian | 4 | 32 | Backend + Frontend | 5.4 |
 | **5.6** | Pengujian | **UAT** bersama pustakawan & anggota percontohan (**M7**) | 2 | 16 | QA, PM, Pengguna | 5.5 |
@@ -332,7 +348,7 @@ Durasi = hari kerja kalender berjalan pada staf yang ditugaskan. Total effort la
 | **Project Manager** | 1 (paruh waktu) | Charter, jadwal, anggaran, risiko, koordinasi mingguan, komunikasi pemilik proyek, milestone | 1.1–1.5, 2.2 (bersama), 2.4, 3.9, 4.30, 5.6, 6.5, 7.3, 7.4 |
 | **System Analyst** | 1 | Mengumpulkan & merumuskan kebutuhan, SRS, aturan bisnis, memvalidasi desain terhadap kebutuhan | 1.1, 1.3, 2.1–2.4, 3.1–3.3 (validasi), 3.6, 3.8, 5.1, 7.3 |
 | **UI/UX Designer** | 1 | Wireframe & desain visual semua halaman (publik, anggota, admin), sistem komponen, uji kegunaan | 3.1–3.5, masukan ke 4.8–4.12, 4.16, 4.21, 4.24, 4.25, 4.27, 4.28 |
-| **Backend Programmer** | 2 | Model, service (LoanService, FineCalculator, BookMedia), migration, controller, middleware, policy, validasi, command, log aktivitas | 1.3, 2.3, 3.7–3.8, 4.1, 4.3–4.7, 4.9, 4.13–4.15, 4.17–4.20, 4.23, 4.26, 4.29–4.32, 5.2–5.5, 6.1–6.2, 7.1 |
+| **Backend Programmer** | 2 | Model, service (LoanService, LoanClock, LoanAccess, BorrowEligibility, FinePolicy, FineService, Audit, BookMedia), migration, controller, middleware, policy, validasi, command, log aktivitas | 1.3, 2.3, 3.7–3.8, 4.1, 4.3–4.7, 4.9, 4.13–4.15, 4.17–4.20, 4.23, 4.26, 4.29–4.32, 5.2–5.5, 6.1–6.2, 7.1 |
 | **Frontend Programmer** | 1 | Blade, CSS, JS progresif, komponen UI, halaman semua peran, halaman error | 4.2, 4.8, 4.10–4.12, 4.16, 4.19–4.22, 4.24–4.25, 4.27–4.28, 4.30–4.32, 5.5 |
 | **Database Administrator** | 1 (paruh waktu) | ERD, migration, constraint & indeks, kinerja query, migrasi data, backup, server DB produksi | 1.3, 3.6–3.7, 4.3–4.4, 6.1, 6.3 |
 | **QA / Tester** | 1 | Rencana & kasus uji, unit/feature test, pengujian keamanan, UAT, smoke test | 3.5, 5.1–5.6, 6.4 |
@@ -351,7 +367,7 @@ Durasi = hari kerja kalender berjalan pada staf yang ditugaskan. Total effort la
 | **M3** | Desain disetujui | Wireframe/mockup + ERD + rancangan keamanan disetujui | 30 Sep 2026 | 3.9 |
 | **M4** | Fondasi berfungsi | Database termigrasi + registrasi/masuk + unggah buku admin berjalan | ±10 Okt 2026 | 4.8, 4.14 |
 | **M5** | MVP selesai (fitur inti) | Katalog + pinjam + perpanjang + kembali (denda bila telat) + baca PDF end-to-end | ±31 Okt 2026 | 4.21 |
-| **M6** | Code freeze (implementasi tuntas) | Semua fitur terdaftar selesai, 141 tes hijau di CI lokal | 7 Nov 2026 | 4.30 |
+| **M6** | Code freeze (implementasi tuntas) | Semua fitur terdaftar selesai, 195 tes hijau di CI lokal | 7 Nov 2026 | 4.30 |
 | **M7** | UAT lulus | Semua bug mayor/minor ditutup; pustakawan menyetujui | 21 Nov 2026 | 5.6, 5.7 |
 | **M8** | Go-live produksi | Situs hidup di domain produksi, HTTPS, smoke test lulus | 25 Nov 2026 | 6.5 |
 | **M9** | Serah terima & penutupan | Dokumentasi, manual, pelatihan selesai; proyek ditutup | 30 Nov 2026 | 7.4 |
@@ -369,7 +385,7 @@ Durasi = hari kerja kalender berjalan pada staf yang ditugaskan. Total effort la
 | R3 | **Tidak ada reset sandi via email** di kode | Beban admin tiap lupa sandi; risiko akun terkunci | Sedang | Alur reset admin tersedia (`users.reset-password` + wajib ganti sandi); edukasi pustakawan; *asumsi:* SMTP ditambahkan di fase berikutnya |
 | R4 | PDF koleksi besar (50 MB/buku) → storage & bandwidth naik | Biaya server naik, unduhan lambat | Sedang | Disk privat + HTTP Range (hemat bandwidth); kuota storage dipantau DBA |
 | R5 | Race condition peminjaman bersamaan | Pinjaman ganda/batas terlewati | Kecil | Sudah mitigasi: `lockForUpdate` + unique index parsial di DB |
-| R6 | Bus factor: tim kecil, pengetahuan terpusat | Keterlambatan saat anggota absen | Sedang | Code review wajib (4.30), dokumentasi teknis (7.1), 141 tes sebagai pagar pengaman |
+| R6 | Bus factor: tim kecil, pengetahuan terpusat | Keterlambatan saat anggota absen | Sedang | Code review wajib (4.30), dokumentasi teknis (7.1), 195 tes sebagai pagar pengaman |
 | R7 | Scope creep: tuntutan notifikasi email, ekspor laporan, gateway pembayaran | Jadwal 3 bulan meleset | Tinggi | Daftar eksplisit "di luar ruang lingkup" (Bab 0); usulan masuk backlog versi berikutnya |
 | R8 | Akun contoh seeder (`admin@example.com`) tertinggal di produksi | Keamanan | Kecil | Checklist deployment (6.3) verifikasi & hapus/ganti |
 | R9 | Zona waktu/jam salah konfigurasi → tenggat pinjaman bergeser | Pinjaman "berakhir" salah | Kecil | `APP_TIMEZONE=Asia/Jakarta` konsisten aplikasi + koneksi DB; dashboard memakai zona waktu aplikasi |

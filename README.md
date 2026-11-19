@@ -104,23 +104,31 @@ Tarif denda di-*snapshot* ke setiap pinjaman saat meminjam, jadi mengubah `.env`
 
 ```
 app/
-  Enums/                 UserRole, LoanStatus, FineStatus, CatalogSort
+  Enums/                 UserRole, LoanStatus, FineStatus, CatalogSort, ActivityAction, BorrowBlockReason
   Http/Controllers/      tipis: validasi (FormRequest) → service/model → view
     Admin/  Account/  Auth/
   Http/Middleware/       EnsureUserIsActive, RequirePasswordChange, SecurityHeaders
   Http/Requests/         seluruh validasi form
   Models/                User, Book, Category, Loan, Review, ActivityLog (scope + accessor)
   Policies/              BookPolicy (hak baca PDF), ReviewPolicy
-  Services/              LoanService (aturan pinjam, denda, transaksi), FineCalculator (hitungan murni), BookMedia
-  Rules/  Support/       PdfSignature; CatalogFilters, Query, Rupiah
+  Services/              LoanService (alur pinjam), LoanClock (waktu), LoanAccess (akses buku),
+                         BorrowEligibility (aturan boleh pinjam), FinePolicy (hitungan murni),
+                         FineService (siklus denda), Audit (jejak aktivitas), BookMedia
+  Rules/  Support/       PdfSignature; CatalogFilters, SearchTerm, BorrowBlock, BorrowStanding,
+                         LoanClosure, Query, Rupiah
   Console/Commands/      library:create-admin
 config/library.php       aturan peminjaman, denda, batas upload, throttle login
 database/                migrations, factories, seeders (+ PDF contoh)
 lang/id/                 terjemahan validasi
 resources/               views (Blade: components/, layouts/), css, js
 routes/web.php           semua rute (bernama)
-tests/                   Feature + Unit (141 tes)
+tests/                   Feature + Unit (195 tes)
 ```
+
+Aturan domain punya satu pemilik: `LoanClock` untuk waktu pinjaman, `LoanAccess` untuk akses anggota ke buku,
+`BorrowEligibility` untuk boleh/tidaknya meminjam beserta alasannya, `FinePolicy` + `FineService` untuk denda dan
+skorsing, `LoanClosure` untuk pesan hasil penutupan, `Audit` untuk log aktivitas, dan `SearchTerm` untuk pola
+pencarian `ILIKE` di katalog maupun panel admin.
 
 PDF disimpan di `storage/app/private/books` (di luar folder publik) dan hanya dilayani oleh `ReaderController`
 setelah `BookPolicy` mengizinkan, dengan dukungan HTTP Range. Sampul di `storage/app/public/covers`.
