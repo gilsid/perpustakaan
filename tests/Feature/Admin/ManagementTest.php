@@ -178,6 +178,15 @@ class ManagementTest extends TestCase
         $this->get('/admin/pengguna?peran=bukan-peran')->assertOk();
     }
 
+    public function test_search_wildcards_are_treated_as_letters(): void
+    {
+        $this->member(['name' => 'Budi % Spesial']);
+        $this->member(['name' => 'Budi Biasa']);
+        $this->actingAs($this->admin());
+
+        $this->get('/admin/pengguna?q=%25')->assertSee('Budi % Spesial')->assertDontSee('Budi Biasa');
+    }
+
     // --------------------------------------------------------------------- log
 
     public function test_activity_log_lists_and_searches_entries(): void

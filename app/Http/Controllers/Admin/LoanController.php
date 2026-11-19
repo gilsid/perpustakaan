@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Loan;
 use App\Services\LoanService;
 use App\Support\Query;
+use App\Support\SearchTerm;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,15 +20,15 @@ class LoanController extends Controller
     public function index(Request $request): View
     {
         $status = Query::enum($request, 'status', LoanStatus::class);
-        $q = Query::string($request, 'q');
+        $search = SearchTerm::fromRequest($request);
         $fineOnly = $request->boolean('denda');
 
         $loans = Loan::query()
             ->with(['user', 'book', 'fineWaivedBy'])
             ->withStatus($status)
             ->when($fineOnly, fn ($query) => $query->unpaidFine())
-            ->when($q !== '', function ($query) use ($q) {
-                $like = '%'.addcslashes($q, '%_\\').'%';
+            ->when(! $search->isBlank(), function ($query) use ($search) {
+                $like = $search->like();
                 $query->where(fn ($w) => $w
                     ->whereHas('user', fn ($u) => $u->where('name', 'ilike', $like)->orWhere('email', 'ilike', $like))
                     ->orWhereHas('book', fn ($b) => $b->where('title', 'ilike', $like)));
@@ -39,7 +40,7 @@ class LoanController extends Controller
             'nav' => 'loans',
             'loans' => $loans,
             'status' => $status,
-            'q' => $q,
+            'q' => $search->value,
             'fineOnly' => $fineOnly,
         ]);
     }

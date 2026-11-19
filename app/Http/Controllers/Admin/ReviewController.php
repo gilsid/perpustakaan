@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Review;
 use App\Services\Audit;
-use App\Support\Query;
+use App\Support\SearchTerm;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,12 +16,12 @@ class ReviewController extends Controller
 
     public function index(Request $request): View
     {
-        $q = Query::string($request, 'q');
+        $search = SearchTerm::fromRequest($request);
 
         $reviews = Review::query()
             ->with(['book', 'user'])
-            ->when($q !== '', function ($query) use ($q) {
-                $like = '%'.addcslashes($q, '%_\\').'%';
+            ->when(! $search->isBlank(), function ($query) use ($search) {
+                $like = $search->like();
                 $query->where(fn ($w) => $w
                     ->whereHas('book', fn ($b) => $b->where('title', 'ilike', $like))
                     ->orWhereHas('user', fn ($u) => $u->where('name', 'ilike', $like))
@@ -30,7 +30,7 @@ class ReviewController extends Controller
             ->latest()
             ->paginate(config('library.admin_per_page'), pageName: 'halaman')->withQueryString();
 
-        return view('admin.reviews', ['nav' => 'reviews', 'reviews' => $reviews, 'q' => $q]);
+        return view('admin.reviews', ['nav' => 'reviews', 'reviews' => $reviews, 'q' => $search->value]);
     }
 
     public function destroy(Review $review): RedirectResponse

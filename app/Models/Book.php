@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CatalogSort;
 use App\Support\CatalogFilters;
+use App\Support\SearchTerm;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -103,7 +104,7 @@ class Book extends Model
     {
         $query
             ->when($f->q !== '', function (Builder $q) use ($f) {
-                $like = '%'.addcslashes($f->q, '%_\\').'%';
+                $like = (new SearchTerm($f->q))->like();
                 $q->where(fn (Builder $w) => $w
                     ->where('title', 'ilike', $like)
                     ->orWhere('author', 'ilike', $like)
@@ -119,6 +120,8 @@ class Book extends Model
 
     public function scopeSortedBy(Builder $query, CatalogSort $sort, string $q = ''): void
     {
+        $term = new SearchTerm($q);
+
         match ($sort) {
             CatalogSort::Title => $query->orderByRaw('lower(title)'),
             CatalogSort::Rating => $query->orderByRaw('avg_rating DESC NULLS LAST')->orderByDesc('reviews_count')->orderBy('title'),
@@ -127,7 +130,7 @@ class Book extends Model
             CatalogSort::Relevance => $q !== ''
                 ? $query->orderByRaw(
                     'CASE WHEN title ILIKE ? THEN 0 WHEN title ILIKE ? THEN 1 WHEN author ILIKE ? THEN 2 ELSE 3 END',
-                    [addcslashes($q, '%_\\').'%', '%'.addcslashes($q, '%_\\').'%', '%'.addcslashes($q, '%_\\').'%']
+                    [$term->startsWith(), $term->like(), $term->like()]
                 )->orderByRaw('lower(title)')
                 : $query->latest()->orderByDesc('id'),
             default => $query->latest()->orderByDesc('id'),
