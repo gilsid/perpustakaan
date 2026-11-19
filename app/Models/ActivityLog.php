@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ActivityAction;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,18 +26,9 @@ class ActivityLog extends Model
         return $this->belongsTo(User::class);
     }
 
-    /** Mencatat aktivitas admin/pengguna yang penting. */
-    public static function record(string $action, string $entityType, ?int $entityId, string $message, ?User $actor = null): self
+    /** Label manusiawi untuk kode aksi; kode lama yang tak dikenal ditampilkan apa adanya. */
+    public function actionLabel(): string
     {
-        $actor ??= request()->user();
-
-        return static::create([
-            'user_id' => $actor?->id,
-            'action' => $action,
-            'entity_type' => $entityType,
-            'entity_id' => $entityId,
-            'message' => $message,
-            'ip' => request()->ip(),
-        ]);
+        return ActivityAction::tryFrom($this->action)?->label() ?? $this->action;
     }
 }

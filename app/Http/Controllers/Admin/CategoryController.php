@@ -4,13 +4,15 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\CategoryRequest;
-use App\Models\ActivityLog;
 use App\Models\Category;
+use App\Services\Audit;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 
 class CategoryController extends Controller
 {
+    public function __construct(private readonly Audit $audit) {}
+
     public function index(): View
     {
         return view('admin.categories', [
@@ -22,7 +24,7 @@ class CategoryController extends Controller
     public function store(CategoryRequest $request): RedirectResponse
     {
         $category = Category::create($request->validated());
-        ActivityLog::record('create_category', 'category', $category->id, "Menambah kategori \"{$category->name}\"");
+        $this->audit->categoryCreated($category, $request->user());
 
         return redirect()->route('admin.categories.index')->with('success', "Kategori \"{$category->name}\" ditambahkan.");
     }
@@ -31,7 +33,7 @@ class CategoryController extends Controller
     {
         $old = $category->name;
         $category->update($request->validated());
-        ActivityLog::record('update_category', 'category', $category->id, "Mengubah kategori \"$old\" menjadi \"{$category->name}\"");
+        $this->audit->categoryUpdated($category, $old, $request->user());
 
         return redirect()->route('admin.categories.index')->with('success', 'Kategori diperbarui.');
     }
@@ -45,7 +47,7 @@ class CategoryController extends Controller
         }
 
         $category->delete();
-        ActivityLog::record('delete_category', 'category', $category->id, "Menghapus kategori \"{$category->name}\"");
+        $this->audit->categoryDeleted($category, request()->user());
 
         return redirect()->route('admin.categories.index')->with('success', 'Kategori dihapus.');
     }

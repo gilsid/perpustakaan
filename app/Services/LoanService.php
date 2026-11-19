@@ -3,12 +3,10 @@
 namespace App\Services;
 
 use App\Exceptions\LoanException;
-use App\Models\ActivityLog;
 use App\Models\Book;
 use App\Models\Loan;
 use App\Models\User;
 use App\Support\LoanClosure;
-use App\Support\Rupiah;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -19,6 +17,7 @@ class LoanService
         private readonly FinePolicy $finePolicy,
         private readonly LoanAccess $access,
         private readonly BorrowEligibility $eligibility,
+        private readonly Audit $audit,
     ) {}
 
     /**
@@ -30,7 +29,7 @@ class LoanService
         $rate = $this->finePolicy->ratePerDay();
 
         try {
-            return DB::transaction(function () use ($user, $book, $days, $rate): Loan {
+            $loan = DB::transaction(function () use ($user, $book, $days, $rate): Loan {
                 // Kunci baris anggota agar dua permintaan bersamaan tidak sama-sama lolos batas pinjaman.
                 $locked = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
 
@@ -49,6 +48,10 @@ class LoanService
         } catch (UniqueConstraintViolationException) {
             throw new LoanException('Anda sudah meminjam buku ini.');
         }
+
+        $this->audit->loanBorrowed($loan, $user);
+
+        return $loan;
     }
 
     /**
@@ -58,7 +61,7 @@ class LoanService
      */
     public function giveBack(User $user, Book $book): LoanClosure
     {
-        return DB::transaction(function () use ($user, $book): LoanClosure {
+        $closure = DB::transaction(function () use ($user, $book): LoanClosure {
             // Kunci anggota lebih dulu (urutan sama dengan borrow) agar pengembalian dan
             // peminjaman bersamaan tidak saling mengunci terbalik.
             User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
@@ -71,8 +74,16 @@ class LoanService
                 ->first()
                 ?? throw new LoanException('Tidak ada pinjaman aktif untuk buku ini.');
 
-            return $this->closeLoan($loan, $user);
+            return $this->closeLoan($loan);
         });
+
+        $this->audit->loanReturned($closure->loan, $user);
+
+        if ($closure->loan->late_days > 0) {
+            $this->audit->fineAssessed($closure->loan, $user);
+        }
+
+        return $closure;
     }
 
     /**
@@ -82,7 +93,7 @@ class LoanService
      */
     public function endByAdmin(Loan $loan, User $admin): LoanClosure
     {
-        return DB::transaction(function () use ($loan, $admin): LoanClosure {
+        $closure = DB::transaction(function () use ($loan): LoanClosure {
             $locked = Loan::query()->whereKey($loan->id)->lockForUpdate()->first()
                 ?? throw new LoanException('Pinjaman tidak ditemukan.');
 
@@ -90,12 +101,16 @@ class LoanService
                 throw new LoanException('Pinjaman tidak ditemukan atau sudah selesai.');
             }
 
-            $closure = $this->closeLoan($locked, $admin);
-
-            ActivityLog::record('finish_loan', 'loan', $closure->loan->id, "Mengakhiri pinjaman #{$closure->loan->id} (buku #{$closure->loan->book_id}, anggota #{$closure->loan->user_id})", $admin);
-
-            return $closure;
+            return $this->closeLoan($locked);
         });
+
+        if ($closure->loan->late_days > 0) {
+            $this->audit->fineAssessed($closure->loan, $admin);
+        }
+
+        $this->audit->loanEnded($closure->loan, $admin);
+
+        return $closure;
     }
 
     /**
@@ -116,13 +131,15 @@ class LoanService
             'renewals' => $loan->renewals + 1,
         ]);
 
+        $this->audit->loanRenewed($loan, $user);
+
         return $loan;
     }
 
     /** @throws LoanException */
     public function settleFine(Loan $loan, User $admin): void
     {
-        DB::transaction(function () use ($loan, $admin): void {
+        $locked = DB::transaction(function () use ($loan): Loan {
             // Kunci baris agar dua admin yang menekan "Lunas" bersamaan tidak
             // sama-sama lolos dan mencatat log ganda.
             $locked = Loan::query()->whereKey($loan->id)->lockForUpdate()->first()
@@ -130,14 +147,10 @@ class LoanService
 
             $this->fines->settle($locked);
 
-            ActivityLog::record(
-                'fine_paid',
-                'loan',
-                $locked->id,
-                'Menandai lunas denda '.Rupiah::format($locked->fine_amount)." pinjaman #{$locked->id} (anggota #{$locked->user_id})",
-                $admin,
-            );
+            return $locked;
         });
+
+        $this->audit->finePaid($locked, $admin);
     }
 
     /**
@@ -148,20 +161,16 @@ class LoanService
      */
     public function waiveFine(Loan $loan, User $admin, string $reason): void
     {
-        DB::transaction(function () use ($loan, $admin, $reason): void {
+        $locked = DB::transaction(function () use ($loan, $admin): Loan {
             $locked = Loan::query()->whereKey($loan->id)->lockForUpdate()->first()
                 ?? throw new LoanException('Pinjaman tidak ditemukan.');
 
             $this->fines->waive($locked, $admin);
 
-            ActivityLog::record(
-                'fine_waived',
-                'loan',
-                $locked->id,
-                'Membebaskan denda '.Rupiah::format($locked->fine_amount)." pinjaman #{$locked->id} (anggota #{$locked->user_id}): {$reason}",
-                $admin,
-            );
+            return $locked;
         });
+
+        $this->audit->fineWaived($locked, $admin, $reason);
     }
 
     /**
@@ -169,21 +178,9 @@ class LoanService
      *
      * @throws LoanException
      */
-    private function closeLoan(Loan $loan, User $actor): LoanClosure
+    private function closeLoan(Loan $loan): LoanClosure
     {
         $closed = $this->fines->assess($loan, now());
-
-        if ($closed->late_days > 0) {
-            ActivityLog::record(
-                'fine_assessed',
-                'loan',
-                $closed->id,
-                $closed->fine_amount > 0
-                    ? "Denda {$closed->late_days} hari telat = ".Rupiah::format($closed->fine_amount)." untuk pinjaman #{$closed->id} (anggota #{$closed->user_id})"
-                    : "Keterlambatan {$closed->late_days} hari tanpa denda (tarif 0) untuk pinjaman #{$closed->id} (anggota #{$closed->user_id})",
-                $actor,
-            );
-        }
 
         return new LoanClosure($closed, $closed->user()->first()?->suspend_until);
     }

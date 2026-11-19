@@ -2,12 +2,12 @@
 
 namespace Tests\Feature\Admin;
 
-use App\Models\ActivityLog;
 use App\Models\Book;
 use App\Models\Category;
 use App\Models\Loan;
 use App\Models\Review;
 use App\Models\User;
+use App\Services\Audit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -183,8 +183,9 @@ class ManagementTest extends TestCase
     public function test_activity_log_lists_and_searches_entries(): void
     {
         $admin = $this->admin();
-        ActivityLog::record('create_book', 'book', 1, 'Menambah buku "Rahasia Log"', $admin);
-        ActivityLog::record('delete_book', 'book', 2, 'Menghapus buku "Lainnya"', $admin);
+        $audit = app(Audit::class);
+        $audit->bookCreated(Book::factory()->create(['title' => 'Rahasia Log']), $admin);
+        $audit->bookDeleted(Book::factory()->create(['title' => 'Lainnya']), $admin);
 
         $this->actingAs($admin)->get('/admin/log')->assertSee('Rahasia Log')->assertSee('Lainnya');
         $this->get('/admin/log?q=rahasia')->assertSee('Rahasia Log')->assertDontSee('Lainnya');

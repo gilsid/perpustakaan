@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\ActivityLog;
 use App\Models\Review;
+use App\Services\Audit;
 use App\Support\Query;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -12,6 +12,8 @@ use Illuminate\Http\Request;
 
 class ReviewController extends Controller
 {
+    public function __construct(private readonly Audit $audit) {}
+
     public function index(Request $request): View
     {
         $q = Query::string($request, 'q');
@@ -34,7 +36,7 @@ class ReviewController extends Controller
     public function destroy(Review $review): RedirectResponse
     {
         $review->delete();
-        ActivityLog::record('delete_review', 'review', $review->id, "Menghapus ulasan #{$review->id} pada buku #{$review->book_id}");
+        $this->audit->reviewDeleted($review, request()->user());
 
         return back()->with('success', 'Ulasan dihapus.');
     }

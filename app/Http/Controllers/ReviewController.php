@@ -3,16 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreReviewRequest;
-use App\Models\ActivityLog;
 use App\Models\Book;
 use App\Models\Review;
+use App\Services\Audit;
 use App\Services\LoanAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 
 class ReviewController extends Controller
 {
-    public function __construct(private readonly LoanAccess $access) {}
+    public function __construct(
+        private readonly LoanAccess $access,
+        private readonly Audit $audit,
+    ) {}
 
     /** Menulis atau mengubah ulasan (satu per anggota per buku). */
     public function store(StoreReviewRequest $request, Book $book): RedirectResponse
@@ -39,7 +42,7 @@ class ReviewController extends Controller
         $isOwner = $review->user_id === auth()->id();
         $review->delete();
         if (! $isOwner) {
-            ActivityLog::record('delete_review', 'review', $review->id, "Menghapus ulasan #{$review->id} pada buku #{$review->book_id}");
+            $this->audit->reviewDeleted($review, auth()->user());
         }
 
         return back()->with('success', 'Ulasan dihapus.');

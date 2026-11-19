@@ -4,14 +4,16 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
-use App\Models\ActivityLog;
 use App\Models\User;
+use App\Services\Audit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 /** Mengaktifkan / menonaktifkan akun. */
 class UserStatusController extends Controller
 {
+    public function __construct(private readonly Audit $audit) {}
+
     public function update(Request $request, User $user): RedirectResponse
     {
         if ($user->is($request->user())) {
@@ -24,7 +26,12 @@ class UserStatusController extends Controller
         }
 
         $user->update(['is_active' => $activate]);
-        ActivityLog::record($activate ? 'activate_user' : 'deactivate_user', 'user', $user->id, ($activate ? 'Mengaktifkan' : 'Menonaktifkan')." akun {$user->email}");
+
+        if ($activate) {
+            $this->audit->userActivated($user, $request->user());
+        } else {
+            $this->audit->userDeactivated($user, $request->user());
+        }
 
         return back()->with('success', $activate ? 'Akun diaktifkan.' : 'Akun dinonaktifkan. Pengguna otomatis keluar dari semua sesi.');
     }

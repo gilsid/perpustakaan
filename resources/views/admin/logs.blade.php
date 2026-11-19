@@ -16,7 +16,7 @@
                 <tr>
                     <td class="nowrap">{{ $g->created_at->translatedFormat('j M Y, H.i') }}</td>
                     <td>{{ $g->user->name ?? 'Sistem' }}</td>
-                    <td>{{ $g->message }}<br><span class="muted small mono">{{ $g->action }}</span></td>
+                    <td>{{ $g->message }}<br><span class="muted small">{{ $g->actionLabel() }} · <span class="mono">{{ $g->action }}</span></span></td>
                     <td class="mono small">{{ $g->ip ?? '–' }}</td>
                 </tr>
             @endforeach

@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\CatalogSort;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\BookRequest;
-use App\Models\ActivityLog;
 use App\Models\Book;
 use App\Models\Category;
+use App\Services\Audit;
 use App\Services\BookMedia;
 use App\Support\CatalogFilters;
 use App\Support\Query;
@@ -17,7 +17,10 @@ use Illuminate\Http\Request;
 
 class BookController extends Controller
 {
-    public function __construct(private readonly BookMedia $media) {}
+    public function __construct(
+        private readonly BookMedia $media,
+        private readonly Audit $audit,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -61,7 +64,7 @@ class BookController extends Controller
     public function store(BookRequest $request): RedirectResponse
     {
         $book = Book::create($this->attributes($request) + $this->files($request, new Book));
-        ActivityLog::record('create_book', 'book', $book->id, "Menambah buku \"{$book->title}\"");
+        $this->audit->bookCreated($book, $request->user());
 
         return redirect()->route('admin.books.index')->with('success', 'Buku ditambahkan.');
     }
@@ -81,7 +84,7 @@ class BookController extends Controller
         if (array_key_exists('pdf_path', $files) && $oldPdf !== $book->pdf_path) {
             $this->media->deletePdf($oldPdf);
         }
-        ActivityLog::record('update_book', 'book', $book->id, "Mengubah buku \"{$book->title}\"");
+        $this->audit->bookUpdated($book, $request->user());
 
         return redirect()->route('admin.books.index')->with('success', 'Perubahan buku disimpan.');
     }
@@ -91,7 +94,7 @@ class BookController extends Controller
         $book->delete();
         $this->media->deleteCover($book->cover_path);
         $this->media->deletePdf($book->pdf_path);
-        ActivityLog::record('delete_book', 'book', $book->id, "Menghapus buku \"{$book->title}\"");
+        $this->audit->bookDeleted($book, request()->user());
 
         return redirect()->route('admin.books.index')
             ->with('success', "Buku \"{$book->title}\" dihapus beserta berkas dan ulasannya.");
