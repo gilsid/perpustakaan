@@ -435,18 +435,21 @@ progress::-moz-progress-bar { background: var(--navy); }
 .table tbody tr:hover { background: #fafbfd; }
 .table .nowrap { white-space: nowrap; }
 .table td.actions { width: 1%; text-align: right; white-space: nowrap; }
-.table td.actions > * { display: inline-block; vertical-align: middle; }
+.table td.actions > form { display: inline-block; vertical-align: middle; }
 .table td.actions > * + * { margin-left: 4px; }
 .fine-cell__amount { display: block; margin-top: 3px; font-size: .85rem; color: var(--ink-soft); white-space: nowrap; }
 .fine-cell__note { display: block; font-size: .78rem; color: var(--ink-soft); }
 .act-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 5px;
   min-height: 32px; padding: 0 9px; border: 1px solid var(--line-strong); border-radius: var(--radius);
-  background: #fff; color: var(--navy); font: 700 .85rem var(--sans); text-decoration: none; cursor: pointer;
+  background: #fff; color: var(--navy); font: 700 .85rem/1 var(--sans); text-decoration: none; cursor: pointer;
 }
 .act-btn:hover { background: var(--navy-tint); border-color: var(--navy); }
 .act-btn--ok { color: #1e4a35; border-color: #a9d3bd; }
 .act-btn--ok:hover { background: var(--ok-tint); border-color: #1e4a35; }
+.act-btn--danger { color: var(--stamp); border-color: #e9b4ae; }
+.act-btn--danger:hover { background: var(--stamp-tint); border-color: var(--stamp); }
+.act-btn--icon { width: 32px; padding: 0; }
 .media { display: flex; gap: 12px; align-items: center; min-width: 220px; }
 .media__cover { width: 38px; flex: none; }
 .media__title { font-weight: 700; color: var(--ink); }
