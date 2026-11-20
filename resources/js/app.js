@@ -94,6 +94,34 @@
     });
   });
 
+  // Dialog alasan pembebasan denda
+  var waiveDialog = document.getElementById('waive-dialog');
+  if (waiveDialog) {
+    var waiveForm = waiveDialog.querySelector('form');
+    var waiveReason = waiveDialog.querySelector('[name="reason"]');
+    document.querySelectorAll('[data-waive-action]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var action = btn.dataset.waiveAction;
+        var message = 'Bebaskan denda ' + btn.dataset.waiveAmount + ' untuk ' + btn.dataset.waiveBook + ' (' + btn.dataset.waiveUser + '). Skorsing anggota akan dicabut.';
+        if (typeof waiveDialog.showModal !== 'function') {
+          var reason = window.prompt(message + '\n\nAlasan:');
+          if (!reason) return;
+          waiveForm.action = action;
+          waiveReason.value = reason;
+          waiveForm.submit();
+          return;
+        }
+        waiveForm.action = action;
+        waiveDialog.querySelector('#waive-message').textContent = message;
+        waiveReason.value = '';
+        waiveDialog.showModal();
+      });
+    });
+    waiveDialog.querySelector('[data-close]').addEventListener('click', function () {
+      waiveDialog.close();
+    });
+  }
+
   // Cegah kirim ganda: nonaktifkan tombol submit setelah diklik
   document.querySelectorAll('form').forEach(function (form) {
     form.addEventListener('submit', function (e) {

@@ -14,7 +14,7 @@
         @foreach ($tabs as $k => $label)
             <a href="{{ route('admin.loans.index', ['status' => $k, 'q' => $q]) }}" @if ($current === $k && ! $fineOnly) aria-current="page" @endif>{{ $label }}</a>
         @endforeach
-        <a href="{{ route('admin.loans.index', ['denda' => 1, 'q' => $q]) }}" @if ($fineOnly) aria-current="page" @endif>Denda belum lunas</a>
+        <a href="{{ route('admin.loans.index', ['denda' => 1, 'q' => $q]) }}" title="Denda belum lunas" @if ($fineOnly) aria-current="page" @endif>Denda</a>
     </nav>
     <form method="get" action="{{ route('admin.loans.index') }}" role="search">
         <input type="hidden" name="status" value="{{ $current }}">
@@ -27,22 +27,33 @@
     <div class="empty"><h2>Tidak ada data</h2><p>Belum ada peminjaman yang cocok dengan filter ini.</p></div>
 @else
     <div class="table-wrap">
-        <table class="table">
-            <thead><tr><th scope="col">Anggota</th><th scope="col">Buku</th><th scope="col">Dipinjam</th><th scope="col">Batas</th><th scope="col">Status</th><th scope="col">Denda</th><th scope="col"><span class="sr-only">Aksi</span></th></tr></thead>
+        <table class="table table--loans">
+            <thead><tr>
+                <th scope="col">Anggota</th>
+                <th scope="col">Buku</th>
+                <th scope="col">Dipinjam</th>
+                <th scope="col">Batas</th>
+                <th scope="col">Status</th>
+                <th scope="col">Denda</th>
+                <th scope="col"><span class="sr-only">Aksi</span></th>
+            </tr></thead>
             <tbody>
             @foreach ($loans as $l)
                 <tr>
-                    <td>{{ $l->user->name }}<br><span class="muted small">{{ $l->user->email }}</span></td>
-                    <td><a href="{{ route('books.show', $l->book) }}">{{ $l->book->title }}</a></td>
-                    <td>{{ $l->borrowed_at->translatedFormat('j M Y, H.i') }}</td>
-                    <td>{{ $l->due_at->translatedFormat('j M Y') }}</td>
-                    <td><span class="badge {{ $l->status->badgeClass() }}">{{ $l->status->label() }}</span></td>
+                    <td><span title="{{ $l->user->email }}">{{ $l->user->name }}</span></td>
                     <td>
+                        <a href="{{ route('books.show', $l->book) }}">{{ $l->book->title }}</a>
+                        @if ($l->isPhysical()) <span class="small muted">{{ $l->copy?->code ?? 'Fisik' }}</span>@endif
+                    </td>
+                    <td class="nowrap" title="{{ $l->borrowed_at->translatedFormat('j M Y, H.i') }}">{{ $l->borrowed_at->translatedFormat('j M Y') }}</td>
+                    <td class="nowrap" title="{{ $l->due_at->translatedFormat('j M Y, H.i') }}">{{ $l->due_at->translatedFormat('j M Y') }}</td>
+                    <td><span class="badge {{ $l->status->badgeClass() }}">{{ $l->status->label() }}</span></td>
+                    <td class="fine-cell">
                         @if ($l->fine_amount > 0)
-                            <span class="badge {{ $l->fine_status->badgeClass() }}">{{ $l->fine_status->label() }}</span><br>
-                            <span class="small">{{ \App\Support\Rupiah::format($l->fine_amount) }} · {{ $l->late_days }} hari</span>
+                            <span class="badge {{ $l->fine_status->badgeClass() }}">{{ $l->fine_status->label() }}</span>
+                            <span class="fine-cell__amount">{{ \App\Support\Rupiah::format($l->fine_amount) }} · {{ $l->late_days }} hari</span>
                             @if ($l->fine_status === \App\Enums\FineStatus::Waived)
-                                <br><span class="muted small">oleh {{ $l->fineWaivedBy?->name ?? 'admin' }}</span>
+                                <span class="fine-cell__note">oleh {{ $l->fineWaivedBy?->name ?? 'admin' }}</span>
                             @endif
                         @else
                             <span class="muted">—</span>
@@ -51,19 +62,16 @@
                     <td class="actions">
                         @if ($l->returned_at === null)
                             <form method="post" action="{{ route('admin.loans.update', $l) }}" data-confirm="Akhiri pinjaman “{{ $l->book->title }}” milik {{ $l->user->name }}? Aksesnya langsung ditutup dan denda dihitung bila telat." data-confirm-label="Akhiri pinjaman">
-                                @csrf @method('PATCH')<button class="btn btn--secondary btn--sm" type="submit">Akhiri</button>
+                                @csrf @method('PATCH')
+                                <button class="act-btn" type="submit" title="Akhiri pinjaman"><x-icon name="x" />Akhiri</button>
                             </form>
                         @endif
                         @if ($l->fine_status->canBeSettled())
                             <form method="post" action="{{ route('admin.loans.fine.pay', $l) }}" data-confirm="Tandai denda {{ \App\Support\Rupiah::format($l->fine_amount) }} milik {{ $l->user->name }} lunas? Pastikan uang sudah diterima." data-confirm-label="Tandai lunas">
-                                @csrf @method('PATCH')<button class="btn btn--secondary btn--sm" type="submit">Lunas</button>
-                            </form>
-                            <form method="post" action="{{ route('admin.loans.fine.waive', $l) }}">
                                 @csrf @method('PATCH')
-                                <label class="sr-only" for="reason-{{ $l->id }}">Alasan membebaskan denda</label>
-                                <input id="reason-{{ $l->id }}" type="text" name="reason" required minlength="5" maxlength="255" placeholder="Alasan bebas denda">
-                                <button class="btn btn--ghost btn--sm" type="submit">Bebaskan</button>
+                                <button class="act-btn act-btn--ok" type="submit" title="Tandai lunas"><x-icon name="check" />Lunas</button>
                             </form>
+                            <button type="button" class="act-btn" data-waive-action="{{ route('admin.loans.fine.waive', $l) }}" data-waive-book="{{ $l->book->title }}" data-waive-user="{{ $l->user->name }}" data-waive-amount="{{ \App\Support\Rupiah::format($l->fine_amount) }}">Bebaskan</button>
                         @endif
                     </td>
                 </tr>
@@ -73,4 +81,20 @@
     </div>
     {{ $loans->links() }}
 @endif
+
+<dialog id="waive-dialog" class="dialog" aria-labelledby="waive-title">
+    <form method="post">
+        @csrf @method('PATCH')
+        <h2 id="waive-title" class="dialog__title">Bebaskan denda</h2>
+        <p id="waive-message" class="dialog__message"></p>
+        <div class="field">
+            <label for="waive-reason">Alasan pembebasan</label>
+            <input id="waive-reason" type="text" name="reason" required minlength="5" maxlength="255" placeholder="Contoh: kesalahan pencatatan tenggat">
+        </div>
+        <div class="dialog__actions">
+            <button type="button" class="btn btn--ghost" data-close>Batal</button>
+            <button type="submit" class="btn btn--primary">Bebaskan denda</button>
+        </div>
+    </form>
+</dialog>
 </x-layouts.admin>

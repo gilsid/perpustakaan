@@ -9,7 +9,7 @@
     @else
         <ul class="drawer drawer--wide">
             @foreach ($categories as $c)
-                <li><a class="drawer__tab drawer__tab--c{{ $c->tone() }}" href="{{ route('catalog.index', ['kategori' => $c->slug]) }}">
+                <li><a class="drawer__tab drawer__tab--c{{ $c->tone() }}" href="{{ route('catalog.index', ['kategori' => $c->slug]) }}" title="{{ $c->name }}">
                     <span class="drawer__name">{{ $c->name }}</span><span class="drawer__count">{{ number_format($c->books_count, 0, ',', '.') }} buku</span>
                 </a></li>
             @endforeach

@@ -13,7 +13,7 @@
                 <p class="hero__cats">
                     <span>Langsung ke:</span>
                     @foreach ($categories->take(5) as $c)
-                        <a href="{{ route('catalog.index', ['kategori' => $c->slug]) }}">{{ $c->name }}</a>
+                        <a href="{{ route('catalog.index', ['kategori' => $c->slug]) }}" title="{{ $c->name }}">{{ $c->name }}</a>
                     @endforeach
                 </p>
             @endif
@@ -69,7 +69,7 @@
         </header>
         <ul class="drawer">
             @foreach ($categories as $c)
-                <li><a class="drawer__tab drawer__tab--c{{ $c->tone() }}" href="{{ route('catalog.index', ['kategori' => $c->slug]) }}">
+                <li><a class="drawer__tab drawer__tab--c{{ $c->tone() }}" href="{{ route('catalog.index', ['kategori' => $c->slug]) }}" title="{{ $c->name }}">
                     <span class="drawer__name">{{ $c->name }}</span><span class="drawer__count">{{ number_format($c->books_count, 0, ',', '.') }} buku</span>
                 </a></li>
             @endforeach
