@@ -9,6 +9,9 @@ namespace App\Enums;
 enum BorrowBlockReason: string
 {
     case NoPdf = 'tanpa_pdf';
+    case NoMemberNumber = 'tanpa_nomor_kartu';
+    case MembershipExpired = 'keanggotaan_berakhir';
+    case CopyUnavailable = 'eksemplar_tidak_tersedia';
     case AlreadyBorrowed = 'sudah_dipinjam';
     case Suspended = 'diskors';
     case UnpaidFine = 'denda_belum_lunas';

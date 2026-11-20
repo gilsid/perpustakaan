@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\BookCopyStatus;
 use App\Enums\CatalogSort;
 use App\Support\CatalogFilters;
 use App\Support\SearchTerm;
@@ -52,6 +53,18 @@ class Book extends Model
         return $this->hasMany(Loan::class);
     }
 
+    /** @return HasMany<BookCopy, $this> */
+    public function copies(): HasMany
+    {
+        return $this->hasMany(BookCopy::class);
+    }
+
+    /** @return HasMany<BookCopy, $this> */
+    public function availableCopies(): HasMany
+    {
+        return $this->copies()->where('status', BookCopyStatus::Available);
+    }
+
     /** @return BelongsToMany<User, $this> */
     public function favoritedBy(): BelongsToMany
     {
@@ -60,10 +73,17 @@ class Book extends Model
 
     // ---------------------------------------------------------------- accessors
 
-    /** Buku hanya bisa dipinjam bila punya berkas PDF. */
+    /** Buku hanya bisa dipinjam digital bila punya berkas PDF. */
     protected function hasPdf(): Attribute
     {
         return Attribute::get(fn (): bool => $this->pdf_path !== null);
+    }
+
+    /** Jumlah eksemplar fisik yang siap dipinjam. */
+    protected function availableCopiesCount(): Attribute
+    {
+        return Attribute::get(fn (): int => (int) ($this->attributes['available_copies_count']
+            ?? $this->availableCopies()->count()));
     }
 
     protected function coverUrl(): Attribute

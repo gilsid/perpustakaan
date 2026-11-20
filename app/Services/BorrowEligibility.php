@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Enums\LoanFormat;
 use App\Models\Book;
+use App\Models\BookCopy;
 use App\Models\Loan;
 use App\Models\User;
 use App\Support\BorrowBlock;
@@ -29,6 +31,12 @@ final class BorrowEligibility
     {
         $blocks = [];
 
+        if (! $user->hasMemberNumber()) {
+            $blocks[] = BorrowBlock::noMemberNumber();
+        }
+        if ($user->isMembershipExpired()) {
+            $blocks[] = BorrowBlock::membershipExpired($user->membership_expires_at);
+        }
         if ($user->isSuspended()) {
             $blocks[] = BorrowBlock::suspended($user->suspend_until);
         }
@@ -65,12 +73,16 @@ final class BorrowEligibility
      * Alasan untuk buku tertentu, dengan urutan yang juga menjadi urutan
      * pesan: hal yang spesifik tentang buku ini, keadaan akun, lalu kuota.
      */
-    public function forBook(User $user, Book $book): BorrowStanding
+    public function forBook(User $user, Book $book, ?LoanFormat $format = null, ?BookCopy $copy = null): BorrowStanding
     {
         $standing = $this->forMember($user);
         $blocks = [];
 
-        if (! $book->has_pdf) {
+        if ($format === LoanFormat::Physical) {
+            if ($copy === null || ! $copy->isLoanable() || $copy->book_id !== $book->id) {
+                $blocks[] = BorrowBlock::copyUnavailable();
+            }
+        } elseif (! $book->has_pdf) {
             $blocks[] = BorrowBlock::noPdf();
         }
 

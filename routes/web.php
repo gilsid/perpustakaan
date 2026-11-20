@@ -66,6 +66,9 @@ Route::middleware(['auth', 'password.fresh'])->group(function () {
         Route::resource('kategori', Admin\CategoryController::class)->only(['index', 'store', 'update', 'destroy'])
             ->parameters(['kategori' => 'category'])->names('categories');
 
+        Route::get('/sirkulasi', [Admin\CirculationController::class, 'index'])->name('circulation.index');
+        Route::post('/sirkulasi', [Admin\CirculationController::class, 'store'])->name('circulation.store');
+
         Route::get('/peminjaman', [Admin\LoanController::class, 'index'])->name('loans.index');
         Route::patch('/peminjaman/{loan}', [Admin\LoanController::class, 'update'])->name('loans.update');
         Route::patch('/peminjaman/{loan}/denda/lunas', [Admin\LoanFineController::class, 'pay'])->name('loans.fine.pay');

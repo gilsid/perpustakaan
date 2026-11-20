@@ -5,6 +5,7 @@
         'books' => ['admin.books.index', 'books', 'Buku'],
         'categories' => ['admin.categories.index', 'tag', 'Kategori'],
         'loans' => ['admin.loans.index', 'clock', 'Peminjaman'],
+        'circulation' => ['admin.circulation.index', 'books', 'Sirkulasi'],
         'reviews' => ['admin.reviews.index', 'star', 'Ulasan'],
         'users' => ['admin.users.index', 'users', 'Pengguna'],
         'logs' => ['admin.logs.index', 'list', 'Log aktivitas'],

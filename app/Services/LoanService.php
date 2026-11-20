@@ -2,8 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\BookCopyStatus;
+use App\Enums\LoanFormat;
 use App\Exceptions\LoanException;
 use App\Models\Book;
+use App\Models\BookCopy;
 use App\Models\Loan;
 use App\Models\User;
 use App\Support\LoanClosure;
@@ -55,6 +58,42 @@ class LoanService
     }
 
     /**
+     * Check-out eksemplar fisik oleh petugas. Anggota bisa memesan lewat web,
+     * tetapi barang baru keluar saat petugas memindai kartu dan barcode.
+     *
+     * @throws LoanException
+     */
+    public function checkOutCopy(User $user, BookCopy $copy, User $admin): Loan
+    {
+        $loan = DB::transaction(function () use ($user, $copy): Loan {
+            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $lockedCopy = BookCopy::query()->whereKey($copy->id)->lockForUpdate()->firstOrFail();
+
+            if ($block = $this->eligibility->forBook($lockedUser, $lockedCopy->book, LoanFormat::Physical, $lockedCopy)->first()) {
+                throw new LoanException($block->message());
+            }
+
+            $loan = Loan::create([
+                'user_id' => $lockedUser->id,
+                'book_id' => $lockedCopy->book_id,
+                'format' => LoanFormat::Physical,
+                'copy_id' => $lockedCopy->id,
+                'borrowed_at' => now(),
+                'due_at' => now()->addDays((int) config('library.loan.days')),
+                'fine_rate' => $this->finePolicy->ratePerDay(),
+            ]);
+
+            $lockedCopy->update(['status' => BookCopyStatus::Loan]);
+
+            return $loan;
+        });
+
+        $this->audit->copyCheckedOut($loan, $admin);
+
+        return $loan->refresh();
+    }
+
+    /**
      * Mengembalikan buku dan menetapkan denda bila melewati tenggat.
      *
      * @throws LoanException
@@ -69,6 +108,7 @@ class LoanService
             $loan = Loan::query()
                 ->where('user_id', $user->id)
                 ->where('book_id', $book->id)
+                ->where('format', LoanFormat::Digital)
                 ->whereNull('returned_at')
                 ->lockForUpdate()
                 ->first()
@@ -108,6 +148,10 @@ class LoanService
             $this->audit->fineAssessed($closure->loan, $admin);
         }
 
+        if ($closure->loan->isPhysical()) {
+            $this->audit->copyCheckedIn($closure->loan, $admin);
+        }
+
         $this->audit->loanEnded($closure->loan, $admin);
 
         return $closure;
@@ -120,6 +164,10 @@ class LoanService
     {
         $loan = $this->access->activeFor($user, $book)
             ?? throw new LoanException('Tidak ada pinjaman aktif untuk diperpanjang.');
+
+        if ($loan->isPhysical()) {
+            throw new LoanException('Eksemplar fisik harus diperpanjang di perpustakaan.');
+        }
 
         $max = (int) config('library.loan.max_renewals');
         if (! $loan->can_renew) {
@@ -181,6 +229,10 @@ class LoanService
     private function closeLoan(Loan $loan): LoanClosure
     {
         $closed = $this->fines->assess($loan, now());
+
+        if ($closed->isPhysical() && $closed->copy_id !== null) {
+            BookCopy::whereKey($closed->copy_id)->update(['status' => BookCopyStatus::Available]);
+        }
 
         return new LoanClosure($closed, $closed->user()->first()?->suspend_until);
     }

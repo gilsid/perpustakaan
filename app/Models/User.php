@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'is_active', 'must_change_password'])]
+#[Fillable(['name', 'email', 'member_number', 'membership_expires_at', 'password', 'role', 'is_active', 'must_change_password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -30,6 +30,7 @@ class User extends Authenticatable
             'must_change_password' => 'boolean',
             'last_login_at' => 'datetime',
             'suspend_until' => 'datetime',
+            'membership_expires_at' => 'datetime',
         ];
     }
 
@@ -47,6 +48,20 @@ class User extends Authenticatable
     public function isMember(): bool
     {
         return $this->role === UserRole::Member;
+    }
+
+    public function hasMemberNumber(): bool
+    {
+        return array_key_exists('member_number', $this->attributes) && $this->member_number !== null;
+    }
+
+    public function isMembershipExpired(): bool
+    {
+        if (! array_key_exists('membership_expires_at', $this->attributes)) {
+            return false;
+        }
+
+        return $this->membership_expires_at !== null && $this->membership_expires_at->isPast();
     }
 
     /** @return HasMany<Loan, $this> */

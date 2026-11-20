@@ -19,7 +19,7 @@
                     <li class="loan">
                         <a class="loan__cover" href="{{ route('books.show', $l->book) }}"><x-cover :book="$l->book" /></a>
                         <div class="loan__body">
-                            <h3><a href="{{ route('books.show', $l->book) }}">{{ $l->book->title }}</a></h3>
+                            <h3><a href="{{ route('books.show', $l->book) }}">{{ $l->book->title }}</a> @if ($l->isPhysical()) <span class="badge badge--muted">Fisik</span>@endif</h3>
                             <p class="muted">{{ $l->book->author }}</p>
                             <p class="loan__due is-soon"><x-icon name="alert" />Lewat tenggat {{ $l->due_at->translatedFormat('j M Y') }} · @if ($l->days_late > 0){{ $l->days_late }} hari telat @else masih dalam masa tenggang @endif</p>
                             <p class="hint">@if ($l->days_late > 0)Denda dihitung saat buku dikembalikan.@else Denda mulai {{ $l->grace_ends_at->translatedFormat('j M Y, H.i') }}.@endif</p>
@@ -46,7 +46,7 @@
                     <li class="loan">
                         <a class="loan__cover" href="{{ route('books.show', $l->book) }}"><x-cover :book="$l->book" /></a>
                         <div class="loan__body">
-                            <h3><a href="{{ route('books.show', $l->book) }}">{{ $l->book->title }}</a></h3>
+                            <h3><a href="{{ route('books.show', $l->book) }}">{{ $l->book->title }}</a> @if ($l->isPhysical()) <span class="badge badge--muted">Fisik</span>@endif</h3>
                             <p class="muted">{{ $l->book->author }}</p>
                             <p @class(['loan__due', 'is-soon' => $l->is_due_soon])><x-icon name="clock" />Berakhir {{ $l->due_at->translatedFormat('j M Y') }} · {{ $l->days_left_label }}</p>
                             <progress class="loan__progress" max="100" value="{{ $l->elapsed_percent }}" aria-label="Masa pinjam terpakai"></progress>
@@ -75,7 +75,7 @@
                     <tbody>
                     @foreach ($history as $h)
                         <tr>
-                            <td><a href="{{ route('books.show', $h->book) }}">{{ $h->book->title }}</a></td>
+                            <td><a href="{{ route('books.show', $h->book) }}">{{ $h->book->title }}</a> @if ($h->isPhysical()) <span class="badge badge--muted">Fisik</span>@endif</td>
                             <td>{{ $h->borrowed_at->translatedFormat('j M Y') }}</td>
                             <td>{{ $h->returned_at->translatedFormat('j M Y') }}</td>
                             <td>

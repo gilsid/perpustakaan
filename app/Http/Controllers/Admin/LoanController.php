@@ -24,7 +24,7 @@ class LoanController extends Controller
         $fineOnly = $request->boolean('denda');
 
         $loans = Loan::query()
-            ->with(['user', 'book', 'fineWaivedBy'])
+            ->with(['user', 'book', 'copy', 'fineWaivedBy'])
             ->withStatus($status)
             ->when($fineOnly, fn ($query) => $query->unpaidFine())
             ->when(! $search->isBlank(), function ($query) use ($search) {

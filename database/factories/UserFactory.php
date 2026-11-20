@@ -20,6 +20,7 @@ class UserFactory extends Factory
         return [
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
+            'member_number' => 'MP-'.fake()->unique()->numerify('######'),
             'password' => static::$password ??= Hash::make('password'),
             'role' => UserRole::Member,
             'is_active' => true,

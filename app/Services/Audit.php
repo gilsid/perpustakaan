@@ -85,6 +85,18 @@ final class Audit
         $this->record(ActivityAction::BorrowLoan, 'loan', $loan->id, "Meminjam buku #{$loan->book_id} (pinjaman #{$loan->id}, anggota #{$loan->user_id})", $actor);
     }
 
+    public function copyCheckedOut(Loan $loan, User $actor): void
+    {
+        $code = $loan->copy?->code ?? '#'.$loan->copy_id;
+        $this->record(ActivityAction::CheckoutCopy, 'loan', $loan->id, "Check-out eksemplar {$code} untuk anggota #{$loan->user_id} (buku #{$loan->book_id})", $actor);
+    }
+
+    public function copyCheckedIn(Loan $loan, User $actor): void
+    {
+        $code = $loan->copy?->code ?? '#'.$loan->copy_id;
+        $this->record(ActivityAction::CheckinCopy, 'loan', $loan->id, "Check-in eksemplar {$code} dari anggota #{$loan->user_id} (buku #{$loan->book_id})", $actor);
+    }
+
     public function loanRenewed(Loan $loan, User $actor): void
     {
         $this->record(ActivityAction::RenewLoan, 'loan', $loan->id, "Memperpanjang pinjaman #{$loan->id} (buku #{$loan->book_id}) sampai {$loan->due_at->translatedFormat('j M Y')}", $actor);

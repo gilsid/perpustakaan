@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\FineStatus;
+use App\Enums\LoanFormat;
 use App\Enums\LoanStatus;
 use App\Services\LoanClock;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['user_id', 'book_id', 'borrowed_at', 'due_at', 'returned_at', 'renewals',
+#[Fillable(['user_id', 'book_id', 'format', 'copy_id', 'borrowed_at', 'due_at', 'returned_at', 'renewals',
     'fine_rate', 'late_days', 'fine_amount', 'fine_paid_at', 'fine_waived_at', 'fine_waived_by'])]
 class Loan extends Model
 {
@@ -30,6 +31,7 @@ class Loan extends Model
             'due_at' => 'datetime',
             'returned_at' => 'datetime',
             'renewals' => 'integer',
+            'format' => LoanFormat::class,
             'fine_rate' => 'integer',
             'late_days' => 'integer',
             'fine_amount' => 'integer',
@@ -54,6 +56,22 @@ class Loan extends Model
     public function fineWaivedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'fine_waived_by');
+    }
+
+    /** @return BelongsTo<BookCopy, $this> */
+    public function copy(): BelongsTo
+    {
+        return $this->belongsTo(BookCopy::class);
+    }
+
+    public function isPhysical(): bool
+    {
+        return $this->format === LoanFormat::Physical;
+    }
+
+    public function isDigital(): bool
+    {
+        return $this->format === LoanFormat::Digital;
     }
 
     // ------------------------------------------------------------------- scopes

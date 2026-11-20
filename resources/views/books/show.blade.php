@@ -23,6 +23,10 @@
                 @if ($book->review_count > 0)<a href="#ulasan">Baca ulasan</a>@endif
             </p>
 
+            @if ($book->copies()->exists())
+                <p class="muted small">Eksemplar fisik: {{ $book->available_copies_count }} tersedia dari {{ $book->copies()->count() }}.</p>
+            @endif
+
             <section class="loan-box" aria-label="Peminjaman">
                 @if ($isAdmin)
                     <p class="loan-box__status"><x-icon name="shield" />Anda masuk sebagai admin.</p>

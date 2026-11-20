@@ -20,6 +20,8 @@ enum ActivityAction: string
     case ActivateUser = 'activate_user';
     case DeactivateUser = 'deactivate_user';
     case BorrowLoan = 'borrow_loan';
+    case CheckoutCopy = 'checkout_copy';
+    case CheckinCopy = 'checkin_copy';
     case RenewLoan = 'renew_loan';
     case ReturnLoan = 'return_loan';
     case FinishLoan = 'finish_loan';
@@ -43,6 +45,8 @@ enum ActivityAction: string
             self::ActivateUser => 'Mengaktifkan akun',
             self::DeactivateUser => 'Menonaktifkan akun',
             self::BorrowLoan => 'Meminjam buku',
+            self::CheckoutCopy => 'Check-out eksemplar fisik',
+            self::CheckinCopy => 'Check-in eksemplar fisik',
             self::RenewLoan => 'Memperpanjang pinjaman',
             self::ReturnLoan => 'Mengembalikan buku',
             self::FinishLoan => 'Mengakhiri pinjaman',
