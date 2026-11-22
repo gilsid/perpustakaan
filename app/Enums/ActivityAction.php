@@ -20,6 +20,7 @@ enum ActivityAction: string
     case DeleteCategory = 'delete_category';
     case ChangeRole = 'change_role';
     case ResetPassword = 'reset_password';
+    case MembershipUpdated = 'membership_updated';
     case ActivateUser = 'activate_user';
     case DeactivateUser = 'deactivate_user';
     case BorrowLoan = 'borrow_loan';
@@ -55,6 +56,7 @@ enum ActivityAction: string
             self::DeleteCategory => 'Menghapus kategori',
             self::ChangeRole => 'Mengubah peran',
             self::ResetPassword => 'Reset kata sandi',
+            self::MembershipUpdated => 'Kartu anggota diperbarui',
             self::ActivateUser => 'Mengaktifkan akun',
             self::DeactivateUser => 'Menonaktifkan akun',
             self::BorrowLoan => 'Meminjam buku',

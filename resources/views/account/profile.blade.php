@@ -14,6 +14,12 @@
                 <button class="btn btn--primary" type="submit">Simpan perubahan</button>
             </form>
             <p class="muted small">Bergabung sejak {{ $user->created_at->translatedFormat('j M Y') }}</p>
+            @if ($user->isMember())
+                <p class="muted small">Nomor anggota: <strong>{{ $user->member_number }}</strong></p>
+                @if ($user->membershipExpiresAt())
+                    <p class="muted small">Keanggotaan sampai {{ $user->membershipExpiresAt()->translatedFormat('j M Y') }}</p>
+                @endif
+            @endif
         </section>
 
         <section class="card" id="sandi" aria-labelledby="sandi-judul">

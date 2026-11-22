@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
+use Carbon\CarbonInterface;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -62,11 +63,14 @@ class User extends Authenticatable
 
     public function isMembershipExpired(): bool
     {
-        if (! array_key_exists('membership_expires_at', $this->attributes)) {
-            return false;
-        }
+        return $this->membershipExpiresAt()?->isPast() ?? false;
+    }
 
-        return $this->membership_expires_at !== null && $this->membership_expires_at->isPast();
+    public function membershipExpiresAt(): ?CarbonInterface
+    {
+        return array_key_exists('membership_expires_at', $this->attributes)
+            ? $this->membership_expires_at
+            : null;
     }
 
     /** @return HasMany<Loan, $this> */

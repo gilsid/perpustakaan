@@ -81,7 +81,7 @@
     <section class="container section">
         <header class="section__head"><h2>Cara meminjam</h2></header>
         <ol class="steps">
-            <li><h3>Buat akun</h3><p>Daftar gratis dengan email. Tidak perlu kartu anggota.</p></li>
+            <li><h3>Buat akun</h3><p>Daftar gratis dengan email. Nomor anggota dibuat otomatis; kartu cetak diambil di perpustakaan.</p></li>
             <li><h3>Pinjam bukunya</h3><p>Pilih buku bertanda “Bisa dibaca”, lalu tekan Pinjam. Masa pinjam {{ config('library.loan.days') }} hari dan bisa diperpanjang.</p></li>
             <li><h3>Baca di layar</h3><p>Buka pembaca PDF langsung di peramban, di ponsel maupun komputer.</p></li>
         </ol>

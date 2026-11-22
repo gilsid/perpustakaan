@@ -89,6 +89,8 @@ Route::middleware(['auth', 'password.fresh'])->group(function () {
         Route::get('/pengguna', [Admin\UserController::class, 'index'])->name('users.index');
         Route::patch('/pengguna/{user}/status', [Admin\UserStatusController::class, 'update'])->name('users.status');
         Route::patch('/pengguna/{user}/peran', [Admin\UserRoleController::class, 'update'])->name('users.role');
+        Route::get('/pengguna/{user}/kartu', [Admin\MembershipController::class, 'edit'])->name('users.membership.edit');
+        Route::patch('/pengguna/{user}/kartu', [Admin\MembershipController::class, 'update'])->name('users.membership.update');
         Route::post('/pengguna/{user}/reset-sandi', [Admin\UserPasswordResetController::class, 'store'])->name('users.reset-password');
 
         Route::get('/log', [Admin\ActivityLogController::class, 'index'])->name('logs.index');

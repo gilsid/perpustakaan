@@ -26,6 +26,7 @@
                     <td>{{ number_format($u->active_loans_count, 0, ',', '.') }}</td>
                     <td>{{ $u->last_login_at ? $u->last_login_at->translatedFormat('j M Y, H.i') : 'Belum pernah' }}</td>
                     <td class="actions">
+                        <a class="btn btn--ghost btn--sm" href="{{ route('admin.users.membership.edit', $u) }}"><x-icon name="users" />Kartu</a>
                         @unless ($self)
                             <form method="post" action="{{ route('admin.users.reset-password', $u) }}" data-confirm="Buat kata sandi sementara untuk {{ $u->name }}? Kata sandi lamanya langsung tidak berlaku." data-confirm-label="Reset kata sandi">
                                 @csrf<button class="btn btn--ghost btn--sm" type="submit"><x-icon name="lock" />Reset sandi</button>

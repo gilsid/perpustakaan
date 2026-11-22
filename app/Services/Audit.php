@@ -82,6 +82,11 @@ final class Audit
         $this->record(ActivityAction::ResetPassword, 'user', $user->id, "Mereset kata sandi {$user->email}", $actor);
     }
 
+    public function membershipUpdated(User $user, User $actor): void
+    {
+        $this->record(ActivityAction::MembershipUpdated, 'user', $user->id, "Memperbarui kartu anggota {$user->email}", $actor);
+    }
+
     public function userActivated(User $user, User $actor): void
     {
         $this->record(ActivityAction::ActivateUser, 'user', $user->id, "Mengaktifkan akun {$user->email}", $actor);
