@@ -1,8 +1,6 @@
 # Perpustakaan Digital (Laravel)
 
-Aplikasi perpustakaan digital: katalog dengan pencarian dan filter, peminjaman buku PDF, denda keterlambatan
-dan skorsing, pembaca PDF di peramban, favorit, ulasan, dan panel admin. Dibangun dengan **Laravel 13**,
-**PostgreSQL**, dan **Vite**.
+Aplikasi perpustakaan: katalog dengan pencarian dan filter, peminjaman buku PDF, sirkulasi eksemplar fisik oleh petugas, hold, denda keterlambatan, biaya penggantian, dan skorsing. Pembaca PDF di peramban, favorit, ulasan, dan panel admin. Dibangun dengan **Laravel 13**, **PostgreSQL**, dan **Vite**.
 
 ## Kebutuhan
 
@@ -19,7 +17,7 @@ cp .env.example .env
 php artisan key:generate
 
 docker compose up -d      # PostgreSQL siap: user perpus/perpus, db perpustakaan_laravel, port 5433
-php artisan migrate --seed        # --seed opsional: memuat 7 buku contoh + 2 akun contoh
+php artisan migrate --seed        # --seed opsional: 7 buku, 2 akun, dan 10 eksemplar fisik contoh
 php artisan storage:link          # supaya sampul buku bisa diakses
 php artisan library:create-admin  # buat akun admin Anda sendiri (interaktif)
 
@@ -68,17 +66,31 @@ Diatur lewat `.env`:
 
 | Pengaturan | Bawaan |
 |---|---|
-| `LOAN_DAYS` | 14 hari |
-| `LOAN_MAX_ACTIVE` | 5 buku sekaligus |
-| `LOAN_MAX_RENEWALS` | 1 kali, menambah `LOAN_DAYS` |
+| `LOAN_DAYS` | 14 hari untuk pinjaman digital |
+| `LOAN_PHYSICAL_DAYS` | 14 hari untuk eksemplar fisik |
+| `LOAN_MAX_ACTIVE` | 5 buku sekaligus, digital dan fisik digabung |
+| `LOAN_MAX_RENEWALS` | 1 kali, menambah durasi standar |
+| `HOLD_MAX_ACTIVE` | 5 hold aktif per anggota |
+| `HOLD_PICKUP_DAYS` | 7 hari jendela ambil sebelum hold kedaluwarsa |
 
-- Hanya buku yang punya PDF yang bisa dipinjam; buku tanpa PDF tampil sebagai "Hanya katalog".
-- PDF hanya bisa dibuka saat pinjaman aktif; setelah tenggat lewat atau buku dikembalikan, akses otomatis tertutup.
-- Pinjaman yang lewat tenggat **tidak** ditutup otomatis: anggota harus menekan "Kembalikan" agar keterlambatan tercatat.
+- Nomor anggota dibuat otomatis saat daftar (`MP-000001`) dan bisa diubah petugas. `membership_expires_at` opsional; kosong berarti tidak kedaluwarsa.
+- Hanya buku yang punya PDF yang bisa dipinjam digital; buku tanpa PDF tampil sebagai "Hanya katalog".
+- PDF hanya bisa dibuka saat pinjaman **digital** aktif. Pinjaman fisik tidak membuka akses PDF.
+- Pinjaman yang lewat tenggat **tidak** ditutup otomatis: anggota menekan "Kembalikan" untuk digital, atau petugas melakukan check-in untuk fisik.
 - Ulasan hanya bisa ditulis anggota yang pernah meminjam bukunya (`library.review_requires_loan`).
 - Admin bisa membaca semua PDF, tetapi tidak meminjam, menyimpan favorit, atau mengulas.
 
 Zona waktu aplikasi dan koneksi database: `APP_TIMEZONE` (bawaan `Asia/Jakarta`).
+
+## Sirkulasi fisik
+
+Petugas membuka `/admin/sirkulasi`:
+
+1. **Check-out**: pindai atau ketik nomor anggota, lalu barcode eksemplar. Sistem menolak bila kartu tidak ditemukan, eksemplar sedang dipinjam, atau anggota memiliki alasan pemblokiran.
+2. **Check-in**: pindai barcode eksemplar, pilih kondisi **baik**, **rusak**, atau **hilang**. Copy baik kembali ke rak atau langsung ditahan untuk hold berikutnya. Copy rusak/hilang tetap tidak bisa dipinjam dan memunculkan biaya ganti.
+3. **Hold**: anggota memasang hold dari halaman buku bila semua eksemplar tidak tersedia. Antrean urut permintaan. Copy yang kembali ditahan untuk hold pertama, diberi jendela ambil 7 hari, lalu ditawarkan ke anggota berikutnya bila tidak diambil.
+
+Petugas juga bisa mengelola eksemplar di `/admin/eksemplar` (barcode, lokasi, status, biaya ganti), mengubah kartu anggota dari daftar pengguna, memperpanjang pinjaman fisik dari tabel peminjaman, dan melihat hold yang siap diambil di halaman sirkulasi.
 
 ## Denda & skorsing
 
@@ -91,6 +103,7 @@ Tarif denda di-*snapshot* ke setiap pinjaman saat meminjam, jadi mengubah `.env`
 | `FINE_GRACE_HOURS` | `24` | Bebas denda bila terlambat ≤ 24 jam |
 | `FINE_SUSPEND_FACTOR` | `2` | 1 hari telat = 2 hari skorsing |
 | `FINE_SUSPEND_MAX_DAYS` | `30` | Batas maksimum durasi skorsing |
+| `FINE_REPLACEMENT_DEFAULT` | `0` | Biaya ganti saat `book_copies.replacement_cost` kosong; `0` berarti tidak ada biaya |
 
 - **Hari telat** = `ceil((dikembalikan − due_at − grace) / 24 jam)`, minimal 0. Hari kalender, bukan hari kerja.
 - **Nominal** = `min(hari telat × tarif, FINE_MAX)`. Dihitung sekali saat pinjaman ditutup (oleh anggota atau admin).
@@ -98,37 +111,41 @@ Tarif denda di-*snapshot* ke setiap pinjaman saat meminjam, jadi mengubah `.env`
 - Anggota **tidak bisa meminjam** bila diskors, punya denda belum lunas, atau masih punya pinjaman lewat tenggat. Alasannya tampil di halaman buku.
 - Uang dibayar tunai ke pustakawan; admin lalu menekan **Lunas** (penuh, nominal tidak bisa diedit) atau **Bebaskan** dengan alasan wajib (≥5 karakter). Membebaskan denda sekaligus mencabut skorsing.
 - Denda yang dibebaskan tetap menyimpan nominal aslinya untuk audit, dan setiap pelunasan/pembebasan dicatat di `activity_logs`.
+- **Biaya penggantian** berbeda dari denda telat. Muncul saat check-in dengan kondisi rusak atau hilang, nominalnya dari eksemplar (atau `FINE_REPLACEMENT_DEFAULT`), dan bisa dilunasi atau dibebaskan dengan alasan lewat tabel peminjaman. Tagihan yang belum lunas, denda maupun biaya ganti, memblokir pinjam.
 - Migration `2026_11_18_000001` menutup pinjaman yang sudah telat saat fitur ini dipasang (`returned_at = due_at`) agar tidak ada tagihan mundur. Pinjaman yang masih berjalan diisi tarif aktif supaya tidak menghasilkan denda Rp0 saat dikembalikan telat.
 
 ## Struktur
 
 ```
 app/
-  Enums/                 UserRole, LoanStatus, FineStatus, CatalogSort, ActivityAction, BorrowBlockReason
+  Enums/                 UserRole, LoanStatus, FineStatus, CatalogSort, ActivityAction,
+                         BorrowBlockReason, LoanFormat, BookCopyStatus, BookCopyCondition, HoldStatus
   Http/Controllers/      tipis: validasi (FormRequest) → service/model → view
     Admin/  Account/  Auth/
   Http/Middleware/       EnsureUserIsActive, RequirePasswordChange, SecurityHeaders
   Http/Requests/         seluruh validasi form
-  Models/                User, Book, Category, Loan, Review, ActivityLog (scope + accessor)
-  Policies/              BookPolicy (hak baca PDF), ReviewPolicy
-  Services/              LoanService (alur pinjam), LoanClock (waktu), LoanAccess (akses buku),
-                         BorrowEligibility (aturan boleh pinjam), FinePolicy (hitungan murni),
-                         FineService (siklus denda), Audit (jejak aktivitas), BookMedia
+  Models/                User, Book, BookCopy, Category, Loan, Hold, Review, ActivityLog
+  Policies/              BookPolicy (hak baca PDF digital), ReviewPolicy
+  Services/              LoanService, LoanClock, LoanAccess, BorrowEligibility, HoldService,
+                         FinePolicy, FineService, Audit, BookMedia
   Rules/  Support/       PdfSignature; CatalogFilters, SearchTerm, BorrowBlock, BorrowStanding,
                          LoanClosure, Query, Rupiah
   Console/Commands/      library:create-admin
-config/library.php       aturan peminjaman, denda, batas upload, throttle login
+config/library.php       aturan peminjaman, hold, denda, batas upload, throttle login
 database/                migrations, factories, seeders (+ PDF contoh)
+GLOSSARY.md              istilah sirkulasi yang dipakai di kode dan antarmuka
+docs/adr/                keputusan arsitektur
 lang/id/                 terjemahan validasi
 resources/               views (Blade: components/, layouts/), css, js
 routes/web.php           semua rute (bernama)
-tests/                   Feature + Unit (195 tes)
+tests/                   Feature + Unit (223 tes)
 ```
 
 Aturan domain punya satu pemilik: `LoanClock` untuk waktu pinjaman, `LoanAccess` untuk akses anggota ke buku,
-`BorrowEligibility` untuk boleh/tidaknya meminjam beserta alasannya, `FinePolicy` + `FineService` untuk denda dan
-skorsing, `LoanClosure` untuk pesan hasil penutupan, `Audit` untuk log aktivitas, dan `SearchTerm` untuk pola
-pencarian `ILIKE` di katalog maupun panel admin.
+`BorrowEligibility` untuk boleh/tidaknya meminjam beserta alasannya, `HoldService` untuk antrean hold,
+`FinePolicy` + `FineService` untuk denda, biaya ganti, dan skorsing, `BookCopyCondition` untuk kondisi saat
+check-in, `LoanClosure` untuk pesan hasil penutupan, `Audit` untuk log aktivitas, dan `SearchTerm` untuk pola
+pencarian `ILIKE` di katalog maupun panel admin. Istilah yang dipakai tercantum di `GLOSSARY.md`.
 
 PDF disimpan di `storage/app/private/books` (di luar folder publik) dan hanya dilayani oleh `ReaderController`
 setelah `BookPolicy` mengizinkan, dengan dukungan HTTP Range. Sampul di `storage/app/public/covers`.
@@ -142,7 +159,7 @@ setelah `BookPolicy` mengizinkan, dengan dukungan HTTP Range. Sampul di `storage
 - Kata sandi sementara hasil reset admin wajib diganti sebelum memakai fitur lain.
 - Header CSP (tanpa `unsafe-inline`, tanpa sumber eksternal), `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`.
 - Integritas data dijaga database: foreign key, `CHECK`, `UNIQUE`, dan unique index parsial yang mencegah pinjaman ganda.
-- Penetapan denda, pelunasan, dan pembebasan denda dicatat di `activity_logs` (termasuk alasan pembebasan).
+- Penetapan denda, biaya ganti, hold, check-out, check-in, pelunasan, dan pembebasan dicatat di `activity_logs` (termasuk alasan pembebasan).
 - Di luar produksi, `Model::shouldBeStrict()` membuat N+1 query langsung terdeteksi.
 
 ## Pengujian
