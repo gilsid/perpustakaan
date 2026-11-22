@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\LoanException;
+use App\Models\BookCopy;
 use App\Models\Loan;
 use App\Models\User;
 use Carbon\CarbonInterface;
@@ -42,7 +43,43 @@ final class FineService
 
     public function unpaidTotal(User $user): int
     {
-        return (int) $user->loans()->unpaidFine()->sum('fine_amount');
+        $fines = (int) $user->loans()->unpaidFine()->sum('fine_amount');
+        $replacements = (int) $user->loans()->unpaidReplacement()->sum('replacement_amount');
+
+        return $fines + $replacements;
+    }
+
+    public function chargeReplacement(Loan $loan, BookCopy $copy): void
+    {
+        $amount = $copy->replacement_cost ?? (int) config('library.fine.replacement_default');
+        if ($amount <= 0) {
+            return;
+        }
+
+        $loan->update(['replacement_amount' => $amount]);
+    }
+
+    /** @throws LoanException */
+    public function settleReplacement(Loan $loan): void
+    {
+        if (! $loan->canSettleReplacement()) {
+            throw new LoanException('Tidak ada biaya penggantian yang perlu dilunasi.');
+        }
+
+        $loan->update(['replacement_paid_at' => now()]);
+    }
+
+    /** @throws LoanException */
+    public function waiveReplacement(Loan $loan, User $admin): void
+    {
+        if (! $loan->canWaiveReplacement()) {
+            throw new LoanException('Tidak ada biaya penggantian yang bisa dibebaskan.');
+        }
+
+        $loan->update([
+            'replacement_waived_at' => now(),
+            'replacement_waived_by' => $admin->id,
+        ]);
     }
 
     /**

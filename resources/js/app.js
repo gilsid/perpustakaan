@@ -102,7 +102,7 @@
     document.querySelectorAll('[data-waive-action]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var action = btn.dataset.waiveAction;
-        var message = 'Bebaskan denda ' + btn.dataset.waiveAmount + ' untuk ' + btn.dataset.waiveBook + ' (' + btn.dataset.waiveUser + '). Skorsing anggota akan dicabut.';
+        var message = btn.dataset.waiveMessage || ('Bebaskan denda ' + btn.dataset.waiveAmount + ' untuk ' + btn.dataset.waiveBook + ' (' + btn.dataset.waiveUser + '). Skorsing anggota akan dicabut.');
         if (typeof waiveDialog.showModal !== 'function') {
           var reason = window.prompt(message + '\n\nAlasan:');
           if (!reason) return;

@@ -67,6 +67,7 @@ Route::middleware(['auth', 'password.fresh'])->group(function () {
         Route::get('/', Admin\DashboardController::class)->name('dashboard');
 
         Route::resource('buku', Admin\BookController::class)->except('show')->parameters(['buku' => 'book'])->names('books');
+        Route::resource('eksemplar', Admin\BookCopyController::class)->parameters(['eksemplar' => 'copy'])->names('copies');
         Route::resource('kategori', Admin\CategoryController::class)->only(['index', 'store', 'update', 'destroy'])
             ->parameters(['kategori' => 'category'])->names('categories');
 
@@ -79,6 +80,8 @@ Route::middleware(['auth', 'password.fresh'])->group(function () {
         Route::patch('/peminjaman/{loan}/perpanjang', [Admin\LoanController::class, 'renew'])->name('loans.renew');
         Route::patch('/peminjaman/{loan}/denda/lunas', [Admin\LoanFineController::class, 'pay'])->name('loans.fine.pay');
         Route::patch('/peminjaman/{loan}/denda/bebas', [Admin\LoanFineController::class, 'waive'])->name('loans.fine.waive');
+        Route::patch('/peminjaman/{loan}/penggantian/lunas', [Admin\LoanFineController::class, 'payReplacement'])->name('loans.replacement.pay');
+        Route::patch('/peminjaman/{loan}/penggantian/bebas', [Admin\LoanFineController::class, 'waiveReplacement'])->name('loans.replacement.waive');
 
         Route::get('/ulasan', [Admin\ReviewController::class, 'index'])->name('reviews.index');
         Route::delete('/ulasan/{review}', [Admin\ReviewController::class, 'destroy'])->name('reviews.destroy');

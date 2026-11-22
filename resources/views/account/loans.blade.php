@@ -109,6 +109,9 @@
                                 @else
                                     <span class="muted">—</span>
                                 @endif
+                                @if ($h->replacement_amount > 0)
+                                    <br><span class="muted small">Ganti: {{ \App\Support\Rupiah::format($h->replacement_amount) }} ({{ $h->replacementStatusLabel() }})</span>
+                                @endif
                             </td>
                             <td><span class="badge {{ $h->status->badgeClass() }}">{{ $h->status->label() }}</span></td>
                         </tr>

@@ -27,6 +27,7 @@ return [
         'grace_hours' => (int) env('FINE_GRACE_HOURS', 24),
         'suspend_factor' => (int) env('FINE_SUSPEND_FACTOR', 2),
         'suspend_max_days' => (int) env('FINE_SUSPEND_MAX_DAYS', 30),
+        'replacement_default' => (int) env('FINE_REPLACEMENT_DEFAULT', 0),
     ],
 
     'hold' => [

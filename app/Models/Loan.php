@@ -14,7 +14,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable(['user_id', 'book_id', 'format', 'copy_id', 'borrowed_at', 'due_at', 'returned_at', 'renewals',
-    'fine_rate', 'late_days', 'fine_amount', 'fine_paid_at', 'fine_waived_at', 'fine_waived_by'])]
+    'fine_rate', 'late_days', 'fine_amount', 'fine_paid_at', 'fine_waived_at', 'fine_waived_by',
+    'replacement_amount', 'replacement_paid_at', 'replacement_waived_at', 'replacement_waived_by'])]
 class Loan extends Model
 {
     use HasFactory;
@@ -37,6 +38,9 @@ class Loan extends Model
             'fine_amount' => 'integer',
             'fine_paid_at' => 'datetime',
             'fine_waived_at' => 'datetime',
+            'replacement_amount' => 'integer',
+            'replacement_paid_at' => 'datetime',
+            'replacement_waived_at' => 'datetime',
         ];
     }
 
@@ -62,6 +66,33 @@ class Loan extends Model
     public function copy(): BelongsTo
     {
         return $this->belongsTo(BookCopy::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function replacementWaivedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'replacement_waived_by');
+    }
+
+    public function canSettleReplacement(): bool
+    {
+        return $this->replacement_amount > 0
+            && $this->replacement_paid_at === null
+            && $this->replacement_waived_at === null;
+    }
+
+    public function canWaiveReplacement(): bool
+    {
+        return $this->canSettleReplacement();
+    }
+
+    public function replacementStatusLabel(): string
+    {
+        return match (true) {
+            $this->replacement_waived_at !== null => 'Dibebaskan',
+            $this->replacement_paid_at !== null => 'Lunas',
+            default => 'Belum lunas',
+        };
     }
 
     public function isPhysical(): bool
@@ -97,6 +128,14 @@ class Loan extends Model
         $query->where('fine_amount', '>', 0)
             ->whereNull('fine_paid_at')
             ->whereNull('fine_waived_at');
+    }
+
+    /** Pinjaman dengan biaya penggantian yang masih terbuka. */
+    public function scopeUnpaidReplacement(Builder $query): void
+    {
+        $query->where('replacement_amount', '>', 0)
+            ->whereNull('replacement_paid_at')
+            ->whereNull('replacement_waived_at');
     }
 
     /** Pinjaman telat yang belum dikembalikan (dasar pemblokiran peminjaman baru). */

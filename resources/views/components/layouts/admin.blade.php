@@ -3,6 +3,7 @@
     $items = [
         'dashboard' => ['admin.dashboard', 'dashboard', 'Dasbor'],
         'books' => ['admin.books.index', 'books', 'Buku'],
+        'copies' => ['admin.copies.index', 'tag', 'Eksemplar'],
         'categories' => ['admin.categories.index', 'tag', 'Kategori'],
         'loans' => ['admin.loans.index', 'clock', 'Peminjaman'],
         'circulation' => ['admin.circulation.index', 'books', 'Sirkulasi'],

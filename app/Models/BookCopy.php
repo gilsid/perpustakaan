@@ -10,13 +10,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** Satu unit fisik dari sebuah judul buku, dikenali oleh barcode/kodenya. */
-#[Fillable(['book_id', 'code', 'location', 'status'])]
+#[Fillable(['book_id', 'code', 'location', 'status', 'replacement_cost'])]
 class BookCopy extends Model
 {
     protected function casts(): array
     {
         return [
             'status' => BookCopyStatus::class,
+            'replacement_cost' => 'integer',
         ];
     }
 
@@ -29,7 +30,7 @@ class BookCopy extends Model
     /** @return HasMany<Loan, $this> */
     public function loans(): HasMany
     {
-        return $this->hasMany(Loan::class);
+        return $this->hasMany(Loan::class, 'copy_id');
     }
 
     /** @param Builder<BookCopy> $query */

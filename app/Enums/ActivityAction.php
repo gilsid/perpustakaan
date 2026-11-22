@@ -12,6 +12,9 @@ enum ActivityAction: string
     case CreateBook = 'create_book';
     case UpdateBook = 'update_book';
     case DeleteBook = 'delete_book';
+    case CopyCreated = 'copy_created';
+    case CopyUpdated = 'copy_updated';
+    case CopyDeleted = 'copy_deleted';
     case CreateCategory = 'create_category';
     case UpdateCategory = 'update_category';
     case DeleteCategory = 'delete_category';
@@ -33,6 +36,9 @@ enum ActivityAction: string
     case FineAssessed = 'fine_assessed';
     case FinePaid = 'fine_paid';
     case FineWaived = 'fine_waived';
+    case ReplacementCharged = 'replacement_charged';
+    case ReplacementPaid = 'replacement_paid';
+    case ReplacementWaived = 'replacement_waived';
 
     public function label(): string
     {
@@ -41,6 +47,9 @@ enum ActivityAction: string
             self::CreateBook => 'Menambah buku',
             self::UpdateBook => 'Mengubah buku',
             self::DeleteBook => 'Menghapus buku',
+            self::CopyCreated => 'Menambah eksemplar',
+            self::CopyUpdated => 'Mengubah eksemplar',
+            self::CopyDeleted => 'Menghapus eksemplar',
             self::CreateCategory => 'Menambah kategori',
             self::UpdateCategory => 'Mengubah kategori',
             self::DeleteCategory => 'Menghapus kategori',
@@ -62,6 +71,9 @@ enum ActivityAction: string
             self::FineAssessed => 'Denda dicatat',
             self::FinePaid => 'Denda dilunasi',
             self::FineWaived => 'Denda dibebaskan',
+            self::ReplacementCharged => 'Biaya penggantian dicatat',
+            self::ReplacementPaid => 'Biaya penggantian lunas',
+            self::ReplacementWaived => 'Biaya penggantian dibebaskan',
         };
     }
 }

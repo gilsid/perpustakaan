@@ -58,6 +58,9 @@
                         @else
                             <span class="muted">—</span>
                         @endif
+                        @if ($l->replacement_amount > 0)
+                            <span class="fine-cell__amount">Penggantian: {{ \App\Support\Rupiah::format($l->replacement_amount) }} ({{ $l->replacementStatusLabel() }})</span>
+                        @endif
                     </td>
                     <td class="actions">
                         @if ($l->returned_at === null)
@@ -79,6 +82,13 @@
                             </form>
                             <button type="button" class="act-btn" data-waive-action="{{ route('admin.loans.fine.waive', $l) }}" data-waive-book="{{ $l->book->title }}" data-waive-user="{{ $l->user->name }}" data-waive-amount="{{ \App\Support\Rupiah::format($l->fine_amount) }}">Bebaskan</button>
                         @endif
+                        @if ($l->canSettleReplacement())
+                            <form method="post" action="{{ route('admin.loans.replacement.pay', $l) }}" data-confirm="Tandai biaya penggantian {{ \App\Support\Rupiah::format($l->replacement_amount) }} lunas? Pastikan uang sudah diterima." data-confirm-label="Tandai lunas">
+                                @csrf @method('PATCH')
+                                <button class="act-btn act-btn--ok" type="submit" title="Lunasi biaya penggantian"><x-icon name="check" />Lunas ganti</button>
+                            </form>
+                            <button type="button" class="act-btn" data-waive-action="{{ route('admin.loans.replacement.waive', $l) }}" data-waive-message="Bebaskan biaya penggantian {{ \App\Support\Rupiah::format($l->replacement_amount) }} untuk {{ $l->user->name }}?">Bebaskan ganti</button>
+                        @endif
                     </td>
                 </tr>
             @endforeach
@@ -91,7 +101,7 @@
 <dialog id="waive-dialog" class="dialog" aria-labelledby="waive-title">
     <form method="post">
         @csrf @method('PATCH')
-        <h2 id="waive-title" class="dialog__title">Bebaskan denda</h2>
+        <h2 id="waive-title" class="dialog__title">Bebaskan tagihan</h2>
         <p id="waive-message" class="dialog__message"></p>
         <div class="field">
             <label for="waive-reason">Alasan pembebasan</label>

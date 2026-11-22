@@ -20,6 +20,7 @@ class BookCopySeeder extends Seeder
                         'book_id' => $book->id,
                         'location' => 'Rak '.chr(65 + $index),
                         'status' => BookCopyStatus::Available,
+                        'replacement_cost' => 50000,
                     ],
                 );
             }

@@ -197,6 +197,10 @@ class LoanService
             $this->audit->fineAssessed($closure->loan, $actor);
         }
 
+        if ($closure->loan->replacement_amount > 0) {
+            $this->audit->replacementCharged($closure->loan, $actor);
+        }
+
         $this->audit->copyCheckedIn($closure->loan, $actor);
         $this->audit->loanReturned($closure->loan, $actor);
 
@@ -298,6 +302,36 @@ class LoanService
         $this->audit->fineWaived($locked, $admin, $reason);
     }
 
+    /** @throws LoanException */
+    public function settleReplacement(Loan $loan, User $admin): void
+    {
+        $locked = DB::transaction(function () use ($loan): Loan {
+            $locked = Loan::query()->whereKey($loan->id)->lockForUpdate()->first()
+                ?? throw new LoanException('Pinjaman tidak ditemukan.');
+
+            $this->fines->settleReplacement($locked);
+
+            return $locked;
+        });
+
+        $this->audit->replacementPaid($locked, $admin);
+    }
+
+    /** @throws LoanException */
+    public function waiveReplacement(Loan $loan, User $admin, string $reason): void
+    {
+        $locked = DB::transaction(function () use ($loan, $admin): Loan {
+            $locked = Loan::query()->whereKey($loan->id)->lockForUpdate()->first()
+                ?? throw new LoanException('Pinjaman tidak ditemukan.');
+
+            $this->fines->waiveReplacement($locked, $admin);
+
+            return $locked;
+        });
+
+        $this->audit->replacementWaived($locked, $admin, $reason);
+    }
+
     /**
      * Menutup pinjaman: hitung denda, snapshot hasilnya, lalu terapkan skorsing.
      *
@@ -310,8 +344,11 @@ class LoanService
         if ($closed->isPhysical() && $closed->copy_id !== null) {
             $copy = BookCopy::findOrFail($closed->copy_id);
             $copy->update(['status' => $condition->copyStatus()]);
+
             if ($condition === BookCopyCondition::Good) {
                 $this->holds->reserveForCheckIn($copy);
+            } else {
+                $this->fines->chargeReplacement($closed, $copy);
             }
         }
 

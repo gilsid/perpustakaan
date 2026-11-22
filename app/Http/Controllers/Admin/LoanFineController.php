@@ -44,4 +44,33 @@ class LoanFineController extends Controller
 
         return back()->with('success', 'Denda dibebaskan dan skorsing anggota dicabut.');
     }
+
+    public function payReplacement(Request $request, Loan $loan): RedirectResponse
+    {
+        try {
+            $this->loans->settleReplacement($loan, $request->user());
+        } catch (LoanException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Biaya penggantian '.Rupiah::format($loan->replacement_amount).' ditandai lunas.');
+    }
+
+    public function waiveReplacement(Request $request, Loan $loan): RedirectResponse
+    {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:255'],
+        ], [
+            'reason.required' => 'Alasan pembebasan wajib diisi.',
+            'reason.min' => 'Alasan pembebasan minimal 5 karakter.',
+        ]);
+
+        try {
+            $this->loans->waiveReplacement($loan, $request->user(), $validated['reason']);
+        } catch (LoanException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Biaya penggantian dibebaskan.');
+    }
 }

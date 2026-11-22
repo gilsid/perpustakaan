@@ -6,6 +6,7 @@ use App\Enums\ActivityAction;
 use App\Enums\UserRole;
 use App\Models\ActivityLog;
 use App\Models\Book;
+use App\Models\BookCopy;
 use App\Models\Category;
 use App\Models\Hold;
 use App\Models\Loan;
@@ -39,6 +40,21 @@ final class Audit
     public function bookDeleted(Book $book, User $actor): void
     {
         $this->record(ActivityAction::DeleteBook, 'book', $book->id, "Menghapus buku \"{$book->title}\"", $actor);
+    }
+
+    public function copyCreated(BookCopy $copy, User $actor): void
+    {
+        $this->record(ActivityAction::CopyCreated, 'copy', $copy->id, "Menambah eksemplar {$copy->code} (buku #{$copy->book_id})", $actor);
+    }
+
+    public function copyUpdated(BookCopy $copy, User $actor): void
+    {
+        $this->record(ActivityAction::CopyUpdated, 'copy', $copy->id, "Mengubah eksemplar {$copy->code} (buku #{$copy->book_id})", $actor);
+    }
+
+    public function copyDeleted(BookCopy $copy, User $actor): void
+    {
+        $this->record(ActivityAction::CopyDeleted, 'copy', $copy->id, "Menghapus eksemplar {$copy->code} (buku #{$copy->book_id})", $actor);
     }
 
     public function categoryCreated(Category $category, User $actor): void
@@ -150,6 +166,21 @@ final class Audit
     public function fineWaived(Loan $loan, User $actor, string $reason): void
     {
         $this->record(ActivityAction::FineWaived, 'loan', $loan->id, 'Membebaskan denda '.Rupiah::format($loan->fine_amount)." pinjaman #{$loan->id} (anggota #{$loan->user_id}): {$reason}", $actor);
+    }
+
+    public function replacementCharged(Loan $loan, User $actor): void
+    {
+        $this->record(ActivityAction::ReplacementCharged, 'loan', $loan->id, 'Mencatat biaya penggantian '.Rupiah::format($loan->replacement_amount)." untuk pinjaman #{$loan->id} (anggota #{$loan->user_id})", $actor);
+    }
+
+    public function replacementPaid(Loan $loan, User $actor): void
+    {
+        $this->record(ActivityAction::ReplacementPaid, 'loan', $loan->id, 'Menandai biaya penggantian '.Rupiah::format($loan->replacement_amount)." pinjaman #{$loan->id} lunas", $actor);
+    }
+
+    public function replacementWaived(Loan $loan, User $actor, string $reason): void
+    {
+        $this->record(ActivityAction::ReplacementWaived, 'loan', $loan->id, 'Membebaskan biaya penggantian '.Rupiah::format($loan->replacement_amount)." pinjaman #{$loan->id}: {$reason}", $actor);
     }
 
     private function record(ActivityAction $action, string $entityType, ?int $entityId, string $message, ?User $actor): void
