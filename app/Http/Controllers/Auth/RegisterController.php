@@ -26,8 +26,8 @@ class RegisterController extends Controller
             ...$request->safe()->only(['name', 'email', 'password']),
             'role' => UserRole::Member,
         ]);
+        $user->update(['member_number' => User::memberNumberFor($user->id)]);
 
-        // Daftar sekaligus masuk: catat waktu masuk pertama seperti pada login biasa.
         $user->forceFill(['last_login_at' => now()])->save();
         Auth::login($user);
         $request->session()->regenerate();

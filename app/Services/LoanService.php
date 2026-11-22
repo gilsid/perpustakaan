@@ -65,28 +65,32 @@ class LoanService
      */
     public function checkOutCopy(User $user, BookCopy $copy, User $admin): Loan
     {
-        $loan = DB::transaction(function () use ($user, $copy): Loan {
-            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
-            $lockedCopy = BookCopy::query()->whereKey($copy->id)->lockForUpdate()->firstOrFail();
+        try {
+            $loan = DB::transaction(function () use ($user, $copy): Loan {
+                $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+                $lockedCopy = BookCopy::query()->with('book')->whereKey($copy->id)->lockForUpdate()->firstOrFail();
 
-            if ($block = $this->eligibility->forBook($lockedUser, $lockedCopy->book, LoanFormat::Physical, $lockedCopy)->first()) {
-                throw new LoanException($block->message());
-            }
+                if ($block = $this->eligibility->forBook($lockedUser, $lockedCopy->book, LoanFormat::Physical, $lockedCopy)->first()) {
+                    throw new LoanException($block->message());
+                }
 
-            $loan = Loan::create([
-                'user_id' => $lockedUser->id,
-                'book_id' => $lockedCopy->book_id,
-                'format' => LoanFormat::Physical,
-                'copy_id' => $lockedCopy->id,
-                'borrowed_at' => now(),
-                'due_at' => now()->addDays((int) config('library.loan.days')),
-                'fine_rate' => $this->finePolicy->ratePerDay(),
-            ]);
+                $loan = Loan::create([
+                    'user_id' => $lockedUser->id,
+                    'book_id' => $lockedCopy->book_id,
+                    'format' => LoanFormat::Physical,
+                    'copy_id' => $lockedCopy->id,
+                    'borrowed_at' => now(),
+                    'due_at' => now()->addDays((int) config('library.loan.days')),
+                    'fine_rate' => $this->finePolicy->ratePerDay(),
+                ]);
 
-            $lockedCopy->update(['status' => BookCopyStatus::Loan]);
+                $lockedCopy->update(['status' => BookCopyStatus::Loan]);
 
-            return $loan;
-        });
+                return $loan;
+            });
+        } catch (UniqueConstraintViolationException) {
+            throw new LoanException('Eksemplar ini sedang dipinjam.');
+        }
 
         $this->audit->copyCheckedOut($loan, $admin);
 

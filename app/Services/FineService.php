@@ -34,7 +34,7 @@ final class FineService
         ]);
 
         if ($lateDays > 0) {
-            $this->suspend($loan->user, $lateDays);
+            $this->suspend($loan->user()->firstOrFail(), $lateDays);
         }
 
         return $loan->refresh();

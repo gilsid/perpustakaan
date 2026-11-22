@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\LoanFormat;
 use App\Models\Book;
 use App\Models\Loan;
 use App\Models\User;
@@ -19,6 +20,7 @@ final class LoanAccess
         return Loan::query()
             ->where('user_id', $user->id)
             ->where('book_id', $book->id)
+            ->where('format', LoanFormat::Digital)
             ->active()
             ->first();
     }

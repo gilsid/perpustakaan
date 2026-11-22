@@ -50,6 +50,11 @@ class User extends Authenticatable
         return $this->role === UserRole::Member;
     }
 
+    public static function memberNumberFor(int $id): string
+    {
+        return 'MP-'.str_pad((string) $id, 6, '0', STR_PAD_LEFT);
+    }
+
     public function hasMemberNumber(): bool
     {
         return array_key_exists('member_number', $this->attributes) && $this->member_number !== null;

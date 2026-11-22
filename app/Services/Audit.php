@@ -87,13 +87,13 @@ final class Audit
 
     public function copyCheckedOut(Loan $loan, User $actor): void
     {
-        $code = $loan->copy?->code ?? '#'.$loan->copy_id;
+        $code = $loan->copy()->value('code') ?? '#'.$loan->copy_id;
         $this->record(ActivityAction::CheckoutCopy, 'loan', $loan->id, "Check-out eksemplar {$code} untuk anggota #{$loan->user_id} (buku #{$loan->book_id})", $actor);
     }
 
     public function copyCheckedIn(Loan $loan, User $actor): void
     {
-        $code = $loan->copy?->code ?? '#'.$loan->copy_id;
+        $code = $loan->copy()->value('code') ?? '#'.$loan->copy_id;
         $this->record(ActivityAction::CheckinCopy, 'loan', $loan->id, "Check-in eksemplar {$code} dari anggota #{$loan->user_id} (buku #{$loan->book_id})", $actor);
     }
 

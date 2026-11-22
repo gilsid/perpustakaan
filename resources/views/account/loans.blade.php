@@ -25,7 +25,11 @@
                             <p class="hint">@if ($l->days_late > 0)Denda dihitung saat buku dikembalikan.@else Denda mulai {{ $l->grace_ends_at->translatedFormat('j M Y, H.i') }}.@endif</p>
                         </div>
                         <div class="loan__actions">
-                            <form method="post" action="{{ route('loans.destroy', $l->book) }}" data-confirm="Kembalikan “{{ $l->book->title }}”? Denda keterlambatan akan dicatat." data-confirm-label="Kembalikan">@csrf @method('DELETE')<button class="btn btn--ghost" type="submit">Kembalikan sekarang</button></form>
+                            @if ($l->isDigital())
+                                <form method="post" action="{{ route('loans.destroy', $l->book) }}" data-confirm="Kembalikan “{{ $l->book->title }}”? Denda keterlambatan akan dicatat." data-confirm-label="Kembalikan">@csrf @method('DELETE')<button class="btn btn--ghost" type="submit">Kembalikan sekarang</button></form>
+                            @else
+                                <p class="muted small">Kembalikan di meja sirkulasi.</p>
+                            @endif
                         </div>
                     </li>
                 @endforeach
@@ -52,11 +56,15 @@
                             <progress class="loan__progress" max="100" value="{{ $l->elapsed_percent }}" aria-label="Masa pinjam terpakai"></progress>
                         </div>
                         <div class="loan__actions">
-                            <a class="btn btn--primary" href="{{ route('reader.show', $l->book) }}">Baca</a>
-                            @if ($l->can_renew)
-                                <form method="post" action="{{ route('loans.update', $l->book) }}">@csrf @method('PATCH')<button class="btn btn--secondary" type="submit"><x-icon name="refresh" />Perpanjang</button></form>
+                            @if ($l->isDigital())
+                                <a class="btn btn--primary" href="{{ route('reader.show', $l->book) }}">Baca</a>
+                                @if ($l->can_renew)
+                                    <form method="post" action="{{ route('loans.update', $l->book) }}">@csrf @method('PATCH')<button class="btn btn--secondary" type="submit"><x-icon name="refresh" />Perpanjang</button></form>
+                                @endif
+                                <form method="post" action="{{ route('loans.destroy', $l->book) }}" data-confirm="Kembalikan “{{ $l->book->title }}”?" data-confirm-label="Kembalikan">@csrf @method('DELETE')<button class="btn btn--ghost" type="submit">Kembalikan</button></form>
+                            @else
+                                <p class="muted small">Kembalikan di meja sirkulasi.</p>
                             @endif
-                            <form method="post" action="{{ route('loans.destroy', $l->book) }}" data-confirm="Kembalikan “{{ $l->book->title }}”?" data-confirm-label="Kembalikan">@csrf @method('DELETE')<button class="btn btn--ghost" type="submit">Kembalikan</button></form>
                         </div>
                     </li>
                 @endforeach
