@@ -171,7 +171,7 @@ Aturan (semua lewat `.env`, lihat `config/library.php`):
 | Header keamanan + CSP | CSP tanpa `unsafe-inline` dan tanpa sumber eksternal; `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, HSTS saat HTTPS; dukungan Vite HMR di dev | `Http/Middleware/SecurityHeaders.php` | S | — |
 | Validasi unggahan | Validasi dari **isi** berkas (aturan `image`, `mimetypes`, `PdfSignature`), bukan hanya ekstensi; sampul re-encode; resolusi maks 40 MP; pesan batas PHP yang jelas | `BookMedia.php`, `PdfSignature.php`, `BookRequest.php` | S | — |
 | Integritas data di DB | Foreign key dengan `cascade/restrict/null`, `CHECK`, `UNIQUE`, unique index parsial (anti pinjaman ganda race condition) | `database/migrations/*` | S | — |
-| Pengujian otomatis | **223 tes** di 27 berkas: Feature (Account, Audit, Auth, BorrowEligibility, Catalog, CheckIn, CopyManagement, Fine, FineService, Hold, Loan, LoanAccess, Membership, PhysicalCirculation, Reader, ReviewAndFavorite, SecurityHeaders, CreateAdminCommand, Admin Access/BookManagement/Management) + Unit (CatalogFilters, FinePolicy, FineStatus, LoanClock, LoanClosure, SearchTerm); disk palsu agar tidak menyentuh `storage/`; butuh PostgreSQL (`ILIKE`, index parsial) | `tests/**` | S–T | Semua fitur |
+| Pengujian otomatis | **225 tes** di 28 berkas: Feature (Account, Audit, Auth, BorrowEligibility, Catalog, CheckIn, CopyManagement, Fine, FineService, Hold, Loan, LoanAccess, Membership, PhysicalCirculation, Reader, ReviewAndFavorite, SecurityHeaders, Seeder, CreateAdminCommand, Admin Access/BookManagement/Management) + Unit (CatalogFilters, FinePolicy, FineStatus, LoanClock, LoanClosure, SearchTerm); disk palsu agar tidak menyentuh `storage/`; butuh PostgreSQL (`ILIKE`, index parsial) | `tests/**` | S–T | Semua fitur |
 
 ---
 
@@ -215,7 +215,7 @@ resources/
   css/app.css          CSS murni (tanpa framework)
   js/app.js            JS vanilla: menu, filter autosubmit, toggle sandi, dll.
 routes/web.php         semua rute bernama
-tests/                 Feature + Unit (223 tes)
+tests/                 Feature + Unit (225 tes)
 storage/app/private/books   PDF (di luar web root)
 storage/app/public/covers   sampul (via symlink storage:link)
 docker-compose.yml     PostgreSQL 16 (port host 5433)
@@ -332,7 +332,7 @@ Durasi = hari kerja kalender berjalan pada staf yang ditugaskan. Total effort la
 | **4.35** | Implementasi (Anggota) | **Kartu anggota dan keanggotaan**: nomor otomatis saat daftar, edit petugas, tanggal berakhir opsional, tampilan profil | 2 | 16 | Backend + Frontend | 4.6 |
 | **5.1** | Pengujian | Rencana & kasus uji dari SRS *(dapat disusun paralel sejak fase desain)* | 2 | 12 | QA, System Analyst | 2.4 |
 | **5.2** | Pengujian | **Unit test**: CatalogFilters, **FinePolicy** (batas grace, pembulatan, cap), FineStatus, LoanClock, LoanClosure, SearchTerm, BookMedia, PdfSignature | 3 | 24 | QA, Backend Programmer | 4.18, 4.23, 4.32 |
-| **5.3** | Pengujian | **Feature test** (223 skenario): auth, katalog, pinjam digital, **sirkulasi fisik (check-out/check-in, eksemplar, biaya ganti, hold, kartu anggota)**, denda & skorsing, pembaca, ulasan/favorit, admin, log audit, header keamanan, command | 5 | 40 | QA, Backend Programmer | 4.30, 4.32–4.35 |
+| **5.3** | Pengujian | **Feature test** (225 skenario): auth, katalog, pinjam digital, **sirkulasi fisik (check-out/check-in, eksemplar, biaya ganti, hold, kartu anggota)**, denda & skorsing, pembaca, ulasan/favorit, admin, log audit, header keamanan, command | 5 | 40 | QA, Backend Programmer | 4.30, 4.32–4.35 |
 | **5.4** | Pengujian | **Pengujian keamanan**: CSP, CSRF, throttling, unggahan berbahaya, eskalasi peran, akses PDF | 2 | 16 | QA, Backend Programmer | 5.3 |
 | **5.5** | Pengujian | Perbaikan bug hasil pengujian | 4 | 32 | Backend + Frontend | 5.4 |
 | **5.6** | Pengujian | **UAT** bersama pustakawan & anggota percontohan (**M7**) | 2 | 16 | QA, PM, Pengguna | 5.5 |
@@ -388,7 +388,7 @@ Durasi = hari kerja kalender berjalan pada staf yang ditugaskan. Total effort la
 | **M3** | Desain disetujui | Wireframe/mockup + ERD + rancangan keamanan disetujui | 30 Sep 2026 | 3.9 |
 | **M4** | Fondasi berfungsi | Database termigrasi + registrasi/masuk + unggah buku admin berjalan | ±10 Okt 2026 | 4.8, 4.14 |
 | **M5** | MVP selesai (fitur inti) | Katalog + pinjam + perpanjang + kembali (denda bila telat) + baca PDF end-to-end | ±31 Okt 2026 | 4.21 |
-| **M6** | Code freeze (implementasi tuntas) | Semua fitur terdaftar selesai, 223 tes hijau di CI lokal | 7 Nov 2026 | 4.30 |
+| **M6** | Code freeze (implementasi tuntas) | Semua fitur terdaftar selesai, 225 tes hijau di CI lokal | 7 Nov 2026 | 4.30 |
 | **M7** | UAT lulus | Semua bug mayor/minor ditutup; pustakawan menyetujui | 21 Nov 2026 | 5.6, 5.7 |
 | **M8** | Go-live produksi | Situs hidup di domain produksi, HTTPS, smoke test lulus | 25 Nov 2026 | 6.5 |
 | **M9** | Serah terima & penutupan | Dokumentasi, manual, pelatihan selesai; proyek ditutup | 30 Nov 2026 | 7.4 |
@@ -406,7 +406,7 @@ Durasi = hari kerja kalender berjalan pada staf yang ditugaskan. Total effort la
 | R3 | **Tidak ada reset sandi via email** di kode | Beban admin tiap lupa sandi; risiko akun terkunci | Sedang | Alur reset admin tersedia (`users.reset-password` + wajib ganti sandi); edukasi pustakawan; *asumsi:* SMTP ditambahkan di fase berikutnya |
 | R4 | PDF koleksi besar (50 MB/buku) → storage & bandwidth naik | Biaya server naik, unduhan lambat | Sedang | Disk privat + HTTP Range (hemat bandwidth); kuota storage dipantau DBA |
 | R5 | Race condition peminjaman bersamaan | Pinjaman ganda/batas terlewati | Kecil | Sudah mitigasi: `lockForUpdate` + unique index parsial di DB |
-| R6 | Bus factor: tim kecil, pengetahuan terpusat | Keterlambatan saat anggota absen | Sedang | Code review wajib (4.30), dokumentasi teknis (7.1), 223 tes sebagai pagar pengaman |
+| R6 | Bus factor: tim kecil, pengetahuan terpusat | Keterlambatan saat anggota absen | Sedang | Code review wajib (4.30), dokumentasi teknis (7.1), 225 tes sebagai pagar pengaman |
 | R7 | Scope creep: tuntutan notifikasi email, ekspor laporan, gateway pembayaran | Jadwal 3 bulan meleset | Tinggi | Daftar eksplisit "di luar ruang lingkup" (Bab 0); usulan masuk backlog versi berikutnya |
 | R8 | Akun contoh seeder (`admin@example.com`) tertinggal di produksi | Keamanan | Kecil | Checklist deployment (6.3) verifikasi & hapus/ganti |
 | R9 | Zona waktu/jam salah konfigurasi → tenggat pinjaman bergeser | Pinjaman "berakhir" salah | Kecil | `APP_TIMEZONE=Asia/Jakarta` konsisten aplikasi + koneksi DB; dashboard memakai zona waktu aplikasi |
