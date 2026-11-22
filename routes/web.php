@@ -72,6 +72,7 @@ Route::middleware(['auth', 'password.fresh'])->group(function () {
 
         Route::get('/sirkulasi', [Admin\CirculationController::class, 'index'])->name('circulation.index');
         Route::post('/sirkulasi', [Admin\CirculationController::class, 'store'])->name('circulation.store');
+        Route::post('/sirkulasi/kembali', [Admin\CirculationController::class, 'checkIn'])->name('circulation.checkin');
 
         Route::get('/peminjaman', [Admin\LoanController::class, 'index'])->name('loans.index');
         Route::patch('/peminjaman/{loan}', [Admin\LoanController::class, 'update'])->name('loans.update');

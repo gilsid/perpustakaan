@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\BookCopyCondition;
 use App\Exceptions\LoanException;
 use App\Http\Controllers\Controller;
 use App\Models\BookCopy;
@@ -12,6 +13,7 @@ use App\Services\LoanService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CirculationController extends Controller
 {
@@ -65,5 +67,34 @@ class CirculationController extends Controller
         }
 
         return back()->with('success', 'Eksemplar '.$copy->code.' dipinjamkan kepada '.$user->name.'. Kembali '.$loan->due_at->translatedFormat('j M Y').'.');
+    }
+
+    public function checkIn(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'barcode' => ['required', 'string', 'max:40'],
+            'condition' => ['required', Rule::enum(BookCopyCondition::class)],
+        ], [
+            'barcode.required' => 'Barcode eksemplar wajib diisi.',
+            'condition.required' => 'Kondisi eksemplar wajib dipilih.',
+        ]);
+
+        $copy = BookCopy::query()->where('code', $validated['barcode'])->first();
+        if ($copy === null) {
+            return back()->with('error', 'Eksemplar dengan barcode itu tidak ditemukan.')->withInput();
+        }
+
+        $loan = Loan::query()->where('copy_id', $copy->id)->whereNull('returned_at')->first();
+        if ($loan === null) {
+            return back()->with('error', 'Eksemplar ini tidak sedang dipinjam.')->withInput();
+        }
+
+        try {
+            $closure = $this->loans->checkInCopy($loan, $request->user(), BookCopyCondition::from($validated['condition']));
+        } catch (LoanException $e) {
+            return back()->with('error', $e->getMessage())->withInput();
+        }
+
+        return back()->with('success', 'Eksemplar '.$copy->code.' diterima kembali. '.$closure->memberMessage());
     }
 }

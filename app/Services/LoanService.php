@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\BookCopyCondition;
 use App\Enums\BookCopyStatus;
 use App\Enums\HoldStatus;
 use App\Enums\LoanFormat;
@@ -178,6 +179,30 @@ class LoanService
         return $closure;
     }
 
+    /** @throws LoanException */
+    public function checkInCopy(Loan $loan, User $actor, BookCopyCondition $condition): LoanClosure
+    {
+        $closure = DB::transaction(function () use ($loan, $condition): LoanClosure {
+            $locked = Loan::query()->whereKey($loan->id)->lockForUpdate()->first()
+                ?? throw new LoanException('Pinjaman tidak ditemukan.');
+
+            if (! $locked->isPhysical() || $locked->returned_at !== null) {
+                throw new LoanException('Eksemplar ini tidak sedang dipinjam.');
+            }
+
+            return $this->closeLoan($locked, $condition);
+        });
+
+        if ($closure->loan->late_days > 0) {
+            $this->audit->fineAssessed($closure->loan, $actor);
+        }
+
+        $this->audit->copyCheckedIn($closure->loan, $actor);
+        $this->audit->loanReturned($closure->loan, $actor);
+
+        return $closure;
+    }
+
     /**
      * @throws LoanException
      */
@@ -278,14 +303,16 @@ class LoanService
      *
      * @throws LoanException
      */
-    private function closeLoan(Loan $loan): LoanClosure
+    private function closeLoan(Loan $loan, BookCopyCondition $condition = BookCopyCondition::Good): LoanClosure
     {
         $closed = $this->fines->assess($loan, now());
 
         if ($closed->isPhysical() && $closed->copy_id !== null) {
             $copy = BookCopy::findOrFail($closed->copy_id);
-            $copy->update(['status' => BookCopyStatus::Available]);
-            $this->holds->reserveForCheckIn($copy);
+            $copy->update(['status' => $condition->copyStatus()]);
+            if ($condition === BookCopyCondition::Good) {
+                $this->holds->reserveForCheckIn($copy);
+            }
         }
 
         return new LoanClosure($closed, $closed->user()->first()?->suspend_until);
