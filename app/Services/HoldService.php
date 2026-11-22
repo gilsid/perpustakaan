@@ -16,6 +16,7 @@ final class HoldService
 {
     public function __construct(
         private readonly BorrowEligibility $eligibility,
+        private readonly LoanAccess $access,
         private readonly Audit $audit,
     ) {}
 
@@ -24,6 +25,10 @@ final class HoldService
     {
         if ($block = $this->eligibility->blocksForMember($user)[0] ?? null) {
             throw new LoanException($block->message());
+        }
+
+        if ($this->access->hasOpenLoan($user, $book)) {
+            throw new LoanException('Anda sudah meminjam buku ini.');
         }
 
         if (! BookCopy::query()->where('book_id', $book->id)->exists()) {

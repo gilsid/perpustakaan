@@ -56,6 +56,20 @@ class HoldTest extends TestCase
         $this->assertDatabaseCount('holds', 0);
     }
 
+    public function test_a_member_with_an_open_loan_cannot_hold_the_same_title(): void
+    {
+        $admin = $this->admin();
+        $member = $this->member();
+        $book = $this->bookWithCopies(1, BookCopyStatus::Available);
+        $copy = BookCopy::where('book_id', $book->id)->firstOrFail();
+        app(LoanService::class)->checkOutCopy($member, $copy, $admin);
+
+        $this->actingAs($member)->post("/buku/{$book->id}/hold")
+            ->assertSessionHas('error', 'Anda sudah meminjam buku ini.');
+
+        $this->assertDatabaseCount('holds', 0);
+    }
+
     public function test_holds_are_served_in_the_order_they_were_placed(): void
     {
         $book = $this->bookWithCopies();
