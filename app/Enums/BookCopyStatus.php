@@ -7,7 +7,7 @@ enum BookCopyStatus: string
 {
     case Available = 'available';
     case Loan = 'loan';
-    case Reserved = 'reserved';
+    case OnHold = 'on_hold';
     case Lost = 'lost';
     case Damaged = 'damaged';
     case Withdrawn = 'withdrawn';
@@ -17,7 +17,7 @@ enum BookCopyStatus: string
         return match ($this) {
             self::Available => 'Tersedia',
             self::Loan => 'Dipinjam',
-            self::Reserved => 'Dipesan',
+            self::OnHold => 'Siap diambil',
             self::Lost => 'Hilang',
             self::Damaged => 'Rusak',
             self::Withdrawn => 'Tidak berlaku',
@@ -29,7 +29,7 @@ enum BookCopyStatus: string
         return match ($this) {
             self::Available => 'badge--ok',
             self::Loan => 'badge--info',
-            self::Reserved => 'badge--warn',
+            self::OnHold => 'badge--warn',
             self::Lost, self::Damaged => 'badge--danger',
             self::Withdrawn => 'badge--muted',
         };

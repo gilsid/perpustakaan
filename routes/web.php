@@ -8,6 +8,7 @@ use App\Http\Controllers\BookController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\HoldController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LoanController;
 use App\Http\Controllers\ReaderController;
@@ -52,6 +53,9 @@ Route::middleware(['auth', 'password.fresh'])->group(function () {
         Route::patch('/buku/{book}/pinjam', [LoanController::class, 'update'])->name('loans.update');
         Route::delete('/buku/{book}/pinjam', [LoanController::class, 'destroy'])->name('loans.destroy');
 
+        Route::post('/buku/{book}/hold', [HoldController::class, 'store'])->name('holds.store');
+        Route::delete('/hold/{hold}', [HoldController::class, 'destroy'])->name('holds.destroy');
+
         Route::put('/buku/{book}/favorit', [FavoriteController::class, 'store'])->name('favorites.store');
         Route::delete('/buku/{book}/favorit', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
 
@@ -71,6 +75,7 @@ Route::middleware(['auth', 'password.fresh'])->group(function () {
 
         Route::get('/peminjaman', [Admin\LoanController::class, 'index'])->name('loans.index');
         Route::patch('/peminjaman/{loan}', [Admin\LoanController::class, 'update'])->name('loans.update');
+        Route::patch('/peminjaman/{loan}/perpanjang', [Admin\LoanController::class, 'renew'])->name('loans.renew');
         Route::patch('/peminjaman/{loan}/denda/lunas', [Admin\LoanFineController::class, 'pay'])->name('loans.fine.pay');
         Route::patch('/peminjaman/{loan}/denda/bebas', [Admin\LoanFineController::class, 'waive'])->name('loans.fine.waive');
 

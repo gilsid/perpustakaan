@@ -37,5 +37,21 @@
             </ul>
         @endif
     </section>
+
+    <section class="card" aria-labelledby="hold-siap">
+        <h2 id="hold-siap">Hold siap diambil</h2>
+        @if ($readyHolds->isEmpty())
+            <p class="muted">Tidak ada hold yang siap diambil.</p>
+        @else
+            <ul class="feed">
+                @foreach ($readyHolds as $hold)
+                    <li>
+                        <strong>{{ $hold->book->title }}</strong>
+                        <span>{{ $hold->copy?->code ?? '–' }} · {{ $hold->user->name }} · ambil sebelum {{ $hold->pickup_expires_at?->translatedFormat('j M Y') }}</span>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </section>
 </div>
 </x-layouts.admin>

@@ -70,7 +70,7 @@ final readonly class BorrowBlock
             BorrowBlockReason::NoPdf => 'Buku ini belum tersedia dalam bentuk digital, jadi belum bisa dipinjam.',
             BorrowBlockReason::NoMemberNumber => 'Akun ini belum memiliki nomor kartu anggota.',
             BorrowBlockReason::MembershipExpired => 'Keanggotaan berakhir pada '.$this->data['until']->translatedFormat('j M Y').'. Perbarui dulu di perpustakaan.',
-            BorrowBlockReason::CopyUnavailable => 'Eksemplar fisik ini sedang dipinjam, dipesan, atau tidak tersedia.',
+            BorrowBlockReason::CopyUnavailable => 'Eksemplar fisik ini sedang dipinjam, ditahan untuk hold, atau tidak tersedia.',
             BorrowBlockReason::AlreadyBorrowed => 'Anda sudah meminjam buku ini.',
             BorrowBlockReason::Suspended => 'Akun Anda diskors sampai '.$this->data['until']->translatedFormat('j M Y').' karena keterlambatan pengembalian.',
             BorrowBlockReason::UnpaidFine => 'Ada denda belum lunas sebesar '.Rupiah::format($this->data['total']).'. Selesaikan ke pustakawan sebelum meminjam lagi.',

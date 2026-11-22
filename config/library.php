@@ -29,6 +29,11 @@ return [
         'suspend_max_days' => (int) env('FINE_SUSPEND_MAX_DAYS', 30),
     ],
 
+    'hold' => [
+        'max_active' => (int) env('HOLD_MAX_ACTIVE', 5),
+        'pickup_days' => (int) env('HOLD_PICKUP_DAYS', 7),
+    ],
+
     // Ulasan hanya boleh ditulis anggota yang pernah meminjam bukunya.
     'review_requires_loan' => (bool) env('LIBRARY_REVIEW_REQUIRES_LOAN', true),
 

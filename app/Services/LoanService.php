@@ -3,10 +3,12 @@
 namespace App\Services;
 
 use App\Enums\BookCopyStatus;
+use App\Enums\HoldStatus;
 use App\Enums\LoanFormat;
 use App\Exceptions\LoanException;
 use App\Models\Book;
 use App\Models\BookCopy;
+use App\Models\Hold;
 use App\Models\Loan;
 use App\Models\User;
 use App\Support\LoanClosure;
@@ -21,6 +23,7 @@ class LoanService
         private readonly LoanAccess $access,
         private readonly BorrowEligibility $eligibility,
         private readonly Audit $audit,
+        private readonly HoldService $holds,
     ) {}
 
     /**
@@ -66,11 +69,21 @@ class LoanService
     public function checkOutCopy(User $user, BookCopy $copy, User $admin): Loan
     {
         try {
-            $loan = DB::transaction(function () use ($user, $copy): Loan {
+            $loan = DB::transaction(function () use ($user, $copy, $admin): Loan {
                 $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
                 $lockedCopy = BookCopy::query()->with('book')->whereKey($copy->id)->lockForUpdate()->firstOrFail();
 
-                if ($block = $this->eligibility->forBook($lockedUser, $lockedCopy->book, LoanFormat::Physical, $lockedCopy)->first()) {
+                $heldCopy = Hold::query()
+                    ->where('user_id', $lockedUser->id)
+                    ->where('copy_id', $lockedCopy->id)
+                    ->where('status', HoldStatus::Ready)
+                    ->first();
+
+                if ($heldCopy === null && $lockedCopy->status === BookCopyStatus::OnHold) {
+                    throw new LoanException('Eksemplar ini sedang ditahan untuk hold anggota lain.');
+                }
+
+                if ($block = $this->eligibility->forBook($lockedUser, $lockedCopy->book, LoanFormat::Physical, $lockedCopy, $heldCopy)->first()) {
                     throw new LoanException($block->message());
                 }
 
@@ -85,6 +98,10 @@ class LoanService
                 ]);
 
                 $lockedCopy->update(['status' => BookCopyStatus::Loan]);
+
+                if ($heldCopy !== null) {
+                    $this->holds->fulfill($heldCopy, $loan, $admin);
+                }
 
                 return $loan;
             });
@@ -173,6 +190,10 @@ class LoanService
             throw new LoanException('Eksemplar fisik harus diperpanjang di perpustakaan.');
         }
 
+        if ($this->holds->hasPendingFor($book)) {
+            throw new LoanException('Ada hold pada judul ini. Kembalikan buku dulu.');
+        }
+
         $max = (int) config('library.loan.max_renewals');
         if (! $loan->can_renew) {
             throw new LoanException($max === 0 ? 'Perpanjangan tidak tersedia.' : "Pinjaman hanya bisa diperpanjang $max kali.");
@@ -184,6 +205,33 @@ class LoanService
         ]);
 
         $this->audit->loanRenewed($loan, $user);
+
+        return $loan;
+    }
+
+    /** @throws LoanException */
+    public function renewByStaff(Loan $loan, User $admin): Loan
+    {
+        if (! $loan->isPhysical() || $loan->returned_at !== null) {
+            throw new LoanException('Pinjaman fisik tidak ditemukan.');
+        }
+
+        $book = $loan->book()->firstOrFail();
+        if ($this->holds->hasPendingFor($book)) {
+            throw new LoanException('Ada hold pada judul ini. Kembalikan eksemplar dulu.');
+        }
+
+        $max = (int) config('library.loan.max_renewals');
+        if ($loan->renewals >= $max) {
+            throw new LoanException($max === 0 ? 'Perpanjangan tidak tersedia.' : "Pinjaman hanya bisa diperpanjang $max kali.");
+        }
+
+        $loan->update([
+            'due_at' => now()->addDays((int) config('library.loan.days')),
+            'renewals' => $loan->renewals + 1,
+        ]);
+
+        $this->audit->loanRenewed($loan, $admin);
 
         return $loan;
     }
@@ -235,7 +283,9 @@ class LoanService
         $closed = $this->fines->assess($loan, now());
 
         if ($closed->isPhysical() && $closed->copy_id !== null) {
-            BookCopy::whereKey($closed->copy_id)->update(['status' => BookCopyStatus::Available]);
+            $copy = BookCopy::findOrFail($closed->copy_id);
+            $copy->update(['status' => BookCopyStatus::Available]);
+            $this->holds->reserveForCheckIn($copy);
         }
 
         return new LoanClosure($closed, $closed->user()->first()?->suspend_until);

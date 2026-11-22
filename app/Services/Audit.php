@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Models\ActivityLog;
 use App\Models\Book;
 use App\Models\Category;
+use App\Models\Hold;
 use App\Models\Loan;
 use App\Models\Review;
 use App\Models\User;
@@ -80,6 +81,26 @@ final class Audit
         $this->record(ActivityAction::DeleteReview, 'review', $review->id, "Menghapus ulasan #{$review->id} pada buku #{$review->book_id}", $actor);
     }
 
+    public function holdPlaced(Hold $hold, User $actor): void
+    {
+        $this->record(ActivityAction::HoldPlaced, 'hold', $hold->id, "Memasang hold untuk buku #{$hold->book_id} (anggota #{$hold->user_id})", $actor);
+    }
+
+    public function holdFulfilled(Hold $hold, User $actor): void
+    {
+        $this->record(ActivityAction::HoldFulfilled, 'hold', $hold->id, "Hold #{$hold->id} dipenuhi oleh pinjaman #{$hold->loan_id}", $actor);
+    }
+
+    public function holdCancelled(Hold $hold, User $actor): void
+    {
+        $this->record(ActivityAction::HoldCancelled, 'hold', $hold->id, "Membatalkan hold #{$hold->id} untuk buku #{$hold->book_id}", $actor);
+    }
+
+    public function holdExpired(Hold $hold): void
+    {
+        $this->record(ActivityAction::HoldExpired, 'hold', $hold->id, "Hold #{$hold->id} untuk buku #{$hold->book_id} kedaluwarsa", null);
+    }
+
     public function loanBorrowed(Loan $loan, User $actor): void
     {
         $this->record(ActivityAction::BorrowLoan, 'loan', $loan->id, "Meminjam buku #{$loan->book_id} (pinjaman #{$loan->id}, anggota #{$loan->user_id})", $actor);
@@ -131,10 +152,10 @@ final class Audit
         $this->record(ActivityAction::FineWaived, 'loan', $loan->id, 'Membebaskan denda '.Rupiah::format($loan->fine_amount)." pinjaman #{$loan->id} (anggota #{$loan->user_id}): {$reason}", $actor);
     }
 
-    private function record(ActivityAction $action, string $entityType, ?int $entityId, string $message, User $actor): void
+    private function record(ActivityAction $action, string $entityType, ?int $entityId, string $message, ?User $actor): void
     {
         ActivityLog::create([
-            'user_id' => $actor->id,
+            'user_id' => $actor?->id,
             'action' => $action->value,
             'entity_type' => $entityType,
             'entity_id' => $entityId,

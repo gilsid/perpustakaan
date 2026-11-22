@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Book;
+use App\Models\Hold;
 use App\Models\Review;
 use App\Services\BorrowEligibility;
 use App\Services\LoanAccess;
@@ -27,6 +28,9 @@ class BookController extends Controller
         $canReview = $isMember && (! config('library.review_requires_loan')
             || $this->access->hasBorrowed($user, $book));
         $standing = $isMember && $activeLoan === null ? $this->eligibility->forBook($user, $book) : null;
+        $pendingHold = $isMember ? Hold::query()->where('user_id', $user->id)->where('book_id', $book->id)->pending()->first() : null;
+        $canHold = $isMember && $activeLoan === null && $pendingHold === null
+            && $book->copies()->exists() && $book->available_copies_count === 0;
 
         $distribution = array_fill_keys([5, 4, 3, 2, 1], 0);
         foreach ($book->reviews()->selectRaw('rating, count(*) as n')->groupBy('rating')->pluck('n', 'rating') as $rating => $n) {
@@ -40,6 +44,8 @@ class BookController extends Controller
             'isFavorite' => $isMember && $user->favorites()->whereKey($book->id)->exists(),
             'activeLoan' => $activeLoan,
             'standing' => $standing,
+            'pendingHold' => $pendingHold,
+            'canHold' => $canHold,
             'myReview' => $myReview,
             'canReview' => $canReview,
             'sameAuthor' => Book::query()->with('category')->withStats()

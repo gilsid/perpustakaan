@@ -11,6 +11,22 @@
         </div>
     @endif
 
+    @if ($holds->isNotEmpty())
+        <section class="section section--tight" aria-labelledby="hold">
+            <h2 id="hold">Hold saya <span class="count">{{ $holds->count() }}</span></h2>
+            <ul class="feed">
+                @foreach ($holds as $hold)
+                    <li>
+                        <strong><a href="{{ route('books.show', $hold->book) }}">{{ $hold->book->title }}</a></strong>
+                        <span><span class="badge {{ $hold->status->badgeClass() }}">{{ $hold->status->label() }}</span>
+                        @if ($hold->pickup_expires_at) · ambil sebelum {{ $hold->pickup_expires_at->translatedFormat('j M Y, H.i') }}@endif</span>
+                        <form method="post" action="{{ route('holds.destroy', $hold) }}">@csrf @method('DELETE')<button class="btn btn--ghost btn--sm" type="submit">Batalkan</button></form>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     @if ($overdue->isNotEmpty())
         <section class="section section--tight" aria-labelledby="terlambat">
             <h2 id="terlambat">Terlambat dikembalikan <span class="count">{{ $overdue->count() }}</span></h2>

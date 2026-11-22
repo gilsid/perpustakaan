@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BookCopy;
 use App\Models\Loan;
 use App\Models\User;
+use App\Services\HoldService;
 use App\Services\LoanService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -14,7 +15,10 @@ use Illuminate\Http\Request;
 
 class CirculationController extends Controller
 {
-    public function __construct(private readonly LoanService $loans) {}
+    public function __construct(
+        private readonly LoanService $loans,
+        private readonly HoldService $holds,
+    ) {}
 
     public function index(): View
     {
@@ -25,6 +29,7 @@ class CirculationController extends Controller
                 ->latest('borrowed_at')
                 ->limit(10)
                 ->get(),
+            'readyHolds' => $this->holds->readyHolds(),
         ]);
     }
 

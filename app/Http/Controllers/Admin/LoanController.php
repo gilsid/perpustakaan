@@ -45,6 +45,17 @@ class LoanController extends Controller
         ]);
     }
 
+    public function renew(Request $request, Loan $loan): RedirectResponse
+    {
+        try {
+            $renewed = $this->loans->renewByStaff($loan, $request->user());
+        } catch (LoanException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Pinjaman diperpanjang sampai '.$renewed->due_at->translatedFormat('j M Y').'.');
+    }
+
     /** Mengakhiri pinjaman (akses langsung ditutup). Denda tetap dihitung bila telat. */
     public function update(Request $request, Loan $loan): RedirectResponse
     {

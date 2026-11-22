@@ -26,6 +26,10 @@ enum ActivityAction: string
     case ReturnLoan = 'return_loan';
     case FinishLoan = 'finish_loan';
     case DeleteReview = 'delete_review';
+    case HoldPlaced = 'hold_placed';
+    case HoldFulfilled = 'hold_fulfilled';
+    case HoldCancelled = 'hold_cancelled';
+    case HoldExpired = 'hold_expired';
     case FineAssessed = 'fine_assessed';
     case FinePaid = 'fine_paid';
     case FineWaived = 'fine_waived';
@@ -51,6 +55,10 @@ enum ActivityAction: string
             self::ReturnLoan => 'Mengembalikan buku',
             self::FinishLoan => 'Mengakhiri pinjaman',
             self::DeleteReview => 'Menghapus ulasan',
+            self::HoldPlaced => 'Hold dipasang',
+            self::HoldFulfilled => 'Hold dipenuhi',
+            self::HoldCancelled => 'Hold dibatalkan',
+            self::HoldExpired => 'Hold kedaluwarsa',
             self::FineAssessed => 'Denda dicatat',
             self::FinePaid => 'Denda dilunasi',
             self::FineWaived => 'Denda dibebaskan',

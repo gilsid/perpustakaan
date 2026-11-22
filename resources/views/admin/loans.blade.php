@@ -61,6 +61,12 @@
                     </td>
                     <td class="actions">
                         @if ($l->returned_at === null)
+                            @if ($l->isPhysical() && $l->renewals < config('library.loan.max_renewals'))
+                                <form method="post" action="{{ route('admin.loans.renew', $l) }}">
+                                    @csrf @method('PATCH')
+                                    <button class="act-btn" type="submit" title="Perpanjang pinjaman"><x-icon name="refresh" />Perpanjang</button>
+                                </form>
+                            @endif
                             <form method="post" action="{{ route('admin.loans.update', $l) }}" data-confirm="Akhiri pinjaman “{{ $l->book->title }}” milik {{ $l->user->name }}? Aksesnya langsung ditutup dan denda dihitung bila telat." data-confirm-label="Akhiri pinjaman">
                                 @csrf @method('PATCH')
                                 <button class="act-btn" type="submit" title="Akhiri pinjaman"><x-icon name="x" />Akhiri</button>

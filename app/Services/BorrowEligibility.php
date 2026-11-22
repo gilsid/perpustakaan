@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\LoanFormat;
 use App\Models\Book;
 use App\Models\BookCopy;
+use App\Models\Hold;
 use App\Models\Loan;
 use App\Models\User;
 use App\Support\BorrowBlock;
@@ -73,13 +74,17 @@ final class BorrowEligibility
      * Alasan untuk buku tertentu, dengan urutan yang juga menjadi urutan
      * pesan: hal yang spesifik tentang buku ini, keadaan akun, lalu kuota.
      */
-    public function forBook(User $user, Book $book, ?LoanFormat $format = null, ?BookCopy $copy = null): BorrowStanding
+    public function forBook(User $user, Book $book, ?LoanFormat $format = null, ?BookCopy $copy = null, ?Hold $hold = null): BorrowStanding
     {
         $standing = $this->forMember($user);
         $blocks = [];
 
         if ($format === LoanFormat::Physical) {
-            if ($copy === null || ! $copy->isLoanable() || $copy->book_id !== $book->id) {
+            $heldForMember = $hold !== null
+                && $hold->user_id === $user->id
+                && $hold->copy_id === $copy?->id;
+
+            if (! $heldForMember && ($copy === null || ! $copy->isLoanable() || $copy->book_id !== $book->id)) {
                 $blocks[] = BorrowBlock::copyUnavailable();
             }
         } elseif (! $book->has_pdf) {

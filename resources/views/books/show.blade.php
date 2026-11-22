@@ -73,6 +73,20 @@
                 @endif
             </section>
 
+            @if ($pendingHold)
+                <div class="alert alert--info" role="status">
+                    <x-icon name="clock" />
+                    <p>Hold Anda: <strong>{{ $pendingHold->status->label() }}</strong>. @if ($pendingHold->pickup_expires_at)Ambil sebelum {{ $pendingHold->pickup_expires_at->translatedFormat('j M Y, H.i') }}.@endif</p>
+                    <form method="post" action="{{ route('holds.destroy', $pendingHold) }}">@csrf @method('DELETE')<button class="btn btn--ghost btn--sm" type="submit">Batalkan hold</button></form>
+                </div>
+            @elseif ($canHold)
+                <div class="alert alert--info" role="status">
+                    <x-icon name="clock" />
+                    <p>Semua eksemplar sedang dipinjam. Pasang hold supaya eksemplar berikutnya ditahan untuk Anda.</p>
+                    <form method="post" action="{{ route('holds.store', $book) }}">@csrf<button class="btn btn--secondary btn--sm" type="submit">Pasang hold</button></form>
+                </div>
+            @endif
+
             @if (trim($book->description) !== '')
                 <section class="prose" aria-labelledby="sinopsis">
                     <h2 id="sinopsis">Sinopsis</h2>
