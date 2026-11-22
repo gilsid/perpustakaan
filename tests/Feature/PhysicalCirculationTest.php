@@ -24,6 +24,16 @@ class PhysicalCirculationTest extends TestCase
         ]);
     }
 
+    public function test_physical_loans_use_their_own_loan_period(): void
+    {
+        config(['library.loan.physical_days' => 7]);
+        $copy = $this->copyFor(Book::factory()->create());
+
+        $loan = app(LoanService::class)->checkOutCopy($this->member(), $copy, $this->admin());
+
+        $this->assertSame(now()->addDays(7)->toDateString(), $loan->due_at->toDateString());
+    }
+
     public function test_a_new_member_has_a_number_and_can_borrow_a_digital_book(): void
     {
         $this->post('/daftar', [

@@ -94,7 +94,7 @@ class LoanService
                     'format' => LoanFormat::Physical,
                     'copy_id' => $lockedCopy->id,
                     'borrowed_at' => now(),
-                    'due_at' => now()->addDays((int) config('library.loan.days')),
+                    'due_at' => now()->addDays((int) config('library.loan.physical_days')),
                     'fine_rate' => $this->finePolicy->ratePerDay(),
                 ]);
 
@@ -256,7 +256,7 @@ class LoanService
         }
 
         $loan->update([
-            'due_at' => now()->addDays((int) config('library.loan.days')),
+            'due_at' => now()->addDays((int) config('library.loan.physical_days')),
             'renewals' => $loan->renewals + 1,
         ]);
 
