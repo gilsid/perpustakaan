@@ -95,4 +95,30 @@ class FineServiceTest extends TestCase
         $this->assertSame($admin->id, $loan->fresh()->fine_waived_by);
         $this->assertNull($user->fresh()->suspend_until);
     }
+
+    public function test_waiving_one_fine_keeps_suspension_from_another_unpaid_fine(): void
+    {
+        $user = $this->member();
+        $admin = $this->admin();
+        $bookId = Book::factory()->withPdf()->create()->id;
+        $returnedAt = now()->subDays(10);
+        $waived = Loan::factory()->create([
+            'user_id' => $user->id,
+            'book_id' => $bookId,
+            'fine_amount' => 3000,
+            'late_days' => 3,
+        ]);
+        Loan::factory()->create([
+            'user_id' => $user->id,
+            'book_id' => $bookId,
+            'returned_at' => $returnedAt,
+            'fine_amount' => 2000,
+            'late_days' => 2,
+        ]);
+
+        $this->fines()->waive($waived, $admin);
+
+        $expected = $returnedAt->copy()->addDays(4);
+        $this->assertSame($expected->getTimestamp(), $user->fresh()->suspend_until->getTimestamp());
+    }
 }

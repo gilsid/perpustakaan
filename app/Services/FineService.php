@@ -94,24 +94,33 @@ final class FineService
         $loan->update(['fine_paid_at' => now()]);
     }
 
-    /**
-     * Membebaskan denda sekaligus mencabut skorsing: alasan yang sah untuk
-     * membebaskan denda juga alasan sah membatalkan skorsing.
-     *
-     * @throws LoanException
-     */
+    /** @throws LoanException */
     public function waive(Loan $loan, User $admin): void
     {
         if (! $loan->fine_status->canBeWaived()) {
             throw new LoanException('Tidak ada denda yang bisa dibebaskan.');
         }
 
+        $user = User::query()->whereKey($loan->user_id)->lockForUpdate()->firstOrFail();
+
         $loan->update([
             'fine_waived_at' => now(),
             'fine_waived_by' => $admin->id,
         ]);
 
-        User::query()->whereKey($loan->user_id)->update(['suspend_until' => null]);
+        $until = Loan::query()
+            ->where('user_id', $user->id)
+            ->whereNotNull('returned_at')
+            ->unpaidFine()
+            ->get(['returned_at', 'late_days'])
+            ->reduce(function (?CarbonInterface $latest, Loan $other): ?CarbonInterface {
+                $candidate = $other->returned_at->copy()
+                    ->addDays($this->policy->suspensionDays((int) $other->late_days));
+
+                return $latest === null || $candidate->greaterThan($latest) ? $candidate : $latest;
+            }, null);
+
+        $user->forceFill(['suspend_until' => $until])->save();
     }
 
     private function suspend(User $user, int $lateDays): void
