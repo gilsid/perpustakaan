@@ -11,6 +11,7 @@ use App\Models\Hold;
 use App\Models\Loan;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 final class HoldService
 {
@@ -23,31 +24,35 @@ final class HoldService
     /** @throws LoanException */
     public function place(User $user, Book $book): Hold
     {
-        if ($block = $this->eligibility->blocksForMember($user)[0] ?? null) {
-            throw new LoanException($block->message());
-        }
+        $hold = DB::transaction(function () use ($user, $book): Hold {
+            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
 
-        if ($this->access->hasOpenLoan($user, $book)) {
-            throw new LoanException('Anda sudah meminjam buku ini.');
-        }
+            if ($block = $this->eligibility->blocksForMember($lockedUser)[0] ?? null) {
+                throw new LoanException($block->message());
+            }
 
-        if (! BookCopy::query()->where('book_id', $book->id)->exists()) {
-            throw new LoanException('Buku ini tidak punya eksemplar fisik.');
-        }
+            if ($this->access->hasOpenLoan($lockedUser, $book)) {
+                throw new LoanException('Anda sudah meminjam buku ini.');
+            }
 
-        if (BookCopy::query()->where('book_id', $book->id)->where('status', BookCopyStatus::Available)->exists()) {
-            throw new LoanException('Masih ada eksemplar tersedia. Ambil langsung di perpustakaan.');
-        }
+            if (! BookCopy::query()->where('book_id', $book->id)->exists()) {
+                throw new LoanException('Buku ini tidak punya eksemplar fisik.');
+            }
 
-        if ($this->activeCount($user) >= (int) config('library.hold.max_active')) {
-            throw new LoanException('Batas hold tercapai. Batalkan salah satu hold dulu.');
-        }
+            if (BookCopy::query()->where('book_id', $book->id)->where('status', BookCopyStatus::Available)->exists()) {
+                throw new LoanException('Masih ada eksemplar tersedia. Ambil langsung di perpustakaan.');
+            }
 
-        $hold = Hold::create([
-            'user_id' => $user->id,
-            'book_id' => $book->id,
-            'status' => HoldStatus::Active,
-        ]);
+            if ($this->activeCount($lockedUser) >= (int) config('library.hold.max_active')) {
+                throw new LoanException('Batas hold tercapai. Batalkan salah satu hold dulu.');
+            }
+
+            return Hold::create([
+                'user_id' => $lockedUser->id,
+                'book_id' => $book->id,
+                'status' => HoldStatus::Active,
+            ]);
+        });
 
         $this->audit->holdPlaced($hold, $user);
 

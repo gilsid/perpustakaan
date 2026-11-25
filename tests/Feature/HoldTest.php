@@ -70,6 +70,20 @@ class HoldTest extends TestCase
         $this->assertDatabaseCount('holds', 0);
     }
 
+    public function test_a_member_cannot_exceed_the_hold_quota(): void
+    {
+        $member = $this->member();
+        $holds = app(HoldService::class);
+        foreach (range(1, 5) as $ignored) {
+            $holds->place($member, $this->bookWithCopies());
+        }
+
+        $this->expectException(LoanException::class);
+        $this->expectExceptionMessage('Batas hold tercapai. Batalkan salah satu hold dulu.');
+
+        $holds->place($member, $this->bookWithCopies());
+    }
+
     public function test_holds_are_served_in_the_order_they_were_placed(): void
     {
         $book = $this->bookWithCopies();

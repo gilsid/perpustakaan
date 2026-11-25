@@ -229,26 +229,31 @@ class LoanService
      */
     public function renew(User $user, Book $book): Loan
     {
-        $loan = $this->access->activeFor($user, $book)
-            ?? throw new LoanException('Tidak ada pinjaman aktif untuk diperpanjang.');
+        $loan = DB::transaction(function () use ($user, $book): Loan {
+            $candidate = $this->access->activeFor($user, $book)
+                ?? throw new LoanException('Tidak ada pinjaman aktif untuk diperpanjang.');
+            $locked = Loan::query()->whereKey($candidate->id)->lockForUpdate()->firstOrFail();
 
-        if ($loan->isPhysical()) {
-            throw new LoanException('Eksemplar fisik harus diperpanjang di perpustakaan.');
-        }
+            if ($locked->isPhysical()) {
+                throw new LoanException('Eksemplar fisik harus diperpanjang di perpustakaan.');
+            }
 
-        if ($this->holds->hasPendingFor($book)) {
-            throw new LoanException('Ada hold pada judul ini. Kembalikan buku dulu.');
-        }
+            if ($this->holds->hasPendingFor($book)) {
+                throw new LoanException('Ada hold pada judul ini. Kembalikan buku dulu.');
+            }
 
-        $max = (int) config('library.loan.max_renewals');
-        if (! $loan->can_renew) {
-            throw new LoanException($max === 0 ? 'Perpanjangan tidak tersedia.' : "Pinjaman hanya bisa diperpanjang $max kali.");
-        }
+            $max = (int) config('library.loan.max_renewals');
+            if (! $locked->can_renew) {
+                throw new LoanException($max === 0 ? 'Perpanjangan tidak tersedia.' : "Pinjaman hanya bisa diperpanjang $max kali.");
+            }
 
-        $loan->update([
-            'due_at' => $loan->due_at->copy()->addDays((int) config('library.loan.days')),
-            'renewals' => $loan->renewals + 1,
-        ]);
+            $locked->update([
+                'due_at' => $locked->due_at->copy()->addDays((int) config('library.loan.days')),
+                'renewals' => $locked->renewals + 1,
+            ]);
+
+            return $locked;
+        });
 
         $this->audit->loanRenewed($loan, $user);
 
@@ -258,28 +263,34 @@ class LoanService
     /** @throws LoanException */
     public function renewByStaff(Loan $loan, User $admin): Loan
     {
-        if (! $loan->isPhysical() || $loan->returned_at !== null) {
-            throw new LoanException('Pinjaman fisik tidak ditemukan.');
-        }
+        $renewed = DB::transaction(function () use ($loan): Loan {
+            $locked = Loan::query()->whereKey($loan->id)->lockForUpdate()->firstOrFail();
 
-        $book = $loan->book()->firstOrFail();
-        if ($this->holds->hasPendingFor($book)) {
-            throw new LoanException('Ada hold pada judul ini. Kembalikan eksemplar dulu.');
-        }
+            if (! $locked->isPhysical() || $locked->returned_at !== null) {
+                throw new LoanException('Pinjaman fisik tidak ditemukan.');
+            }
 
-        $max = (int) config('library.loan.max_renewals');
-        if ($loan->renewals >= $max) {
-            throw new LoanException($max === 0 ? 'Perpanjangan tidak tersedia.' : "Pinjaman hanya bisa diperpanjang $max kali.");
-        }
+            $book = $locked->book()->firstOrFail();
+            if ($this->holds->hasPendingFor($book)) {
+                throw new LoanException('Ada hold pada judul ini. Kembalikan eksemplar dulu.');
+            }
 
-        $loan->update([
-            'due_at' => now()->addDays((int) config('library.loan.physical_days')),
-            'renewals' => $loan->renewals + 1,
-        ]);
+            $max = (int) config('library.loan.max_renewals');
+            if ($locked->renewals >= $max) {
+                throw new LoanException($max === 0 ? 'Perpanjangan tidak tersedia.' : "Pinjaman hanya bisa diperpanjang $max kali.");
+            }
 
-        $this->audit->loanRenewed($loan, $admin);
+            $locked->update([
+                'due_at' => now()->addDays((int) config('library.loan.physical_days')),
+                'renewals' => $locked->renewals + 1,
+            ]);
 
-        return $loan;
+            return $locked;
+        });
+
+        $this->audit->loanRenewed($renewed, $admin);
+
+        return $renewed;
     }
 
     /** @throws LoanException */
