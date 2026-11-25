@@ -198,4 +198,5 @@ Pasang satu entri cron agar hold yang lewat masa ambil dilepas tanpa menunggu pe
 ```
 
 Perintahnya juga bisa dijalankan manual dengan `php artisan library:expire-holds`.
+Akun `admin@example.com` dan `user@example.com` bawaan seeder hanya untuk demo lokal. Ganti kata sandi dan hapus akun contoh sebelum memakai aplikasi sungguhan.
 Belum ada fitur lupa-sandi via email; admin mereset sandi dari halaman Pengguna.
