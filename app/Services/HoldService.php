@@ -78,7 +78,13 @@ final class HoldService
             ->where('book_id', $book->id)
             ->where('status', HoldStatus::Active)
             ->orderBy('id')
-            ->first();
+            ->get()
+            ->first(function (Hold $hold) use ($book): bool {
+                $user = User::query()->findOrFail($hold->user_id);
+
+                return $this->eligibility->blocksForMember($user) === []
+                    && ! $this->access->hasOpenLoan($user, $book);
+            });
     }
 
     public function hasPendingFor(Book $book): bool
@@ -170,7 +176,7 @@ final class HoldService
 
     private function promote(int $bookId): void
     {
-        $hold = Hold::query()->where('book_id', $bookId)->where('status', HoldStatus::Active)->orderBy('id')->first();
+        $hold = $this->firstForBook(Book::findOrFail($bookId));
         if ($hold === null) {
             return;
         }

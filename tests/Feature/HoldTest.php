@@ -179,6 +179,30 @@ class HoldTest extends TestCase
         $this->assertSame(BookCopyStatus::Loan, $copy->fresh()->status);
     }
 
+    public function test_a_suspended_member_is_skipped_when_a_copy_is_reserved(): void
+    {
+        $admin = $this->admin();
+        $borrower = $this->member();
+        $suspended = $this->member();
+        $ready = $this->member();
+        $book = $this->bookWithCopies(1, BookCopyStatus::Available);
+        $copy = BookCopy::firstOrFail();
+        app(LoanService::class)->checkOutCopy($borrower, $copy, $admin);
+        $holds = app(HoldService::class);
+        $first = $holds->place($suspended, $book);
+        $second = $holds->place($ready, $book);
+        $suspended->forceFill(['suspend_until' => now()->addDays(3)])->save();
+
+        $this->actingAs($admin)->post('/admin/sirkulasi/kembali', [
+            'barcode' => $copy->code,
+            'condition' => 'baik',
+        ])->assertSessionHas('success');
+
+        $this->assertSame(HoldStatus::Active, $first->fresh()->status);
+        $this->assertSame(HoldStatus::Ready, $second->fresh()->status);
+        $this->assertSame(BookCopyStatus::OnHold, $copy->fresh()->status);
+    }
+
     public function test_a_hold_blocks_staff_renewal(): void
     {
         $borrower = $this->member();
