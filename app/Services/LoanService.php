@@ -74,6 +74,9 @@ class LoanService
                 $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
                 $lockedCopy = BookCopy::query()->with('book')->whereKey($copy->id)->lockForUpdate()->firstOrFail();
 
+                $this->holds->expireStale();
+                $lockedCopy->refresh();
+
                 $heldCopy = Hold::query()
                     ->where('user_id', $lockedUser->id)
                     ->where('copy_id', $lockedCopy->id)

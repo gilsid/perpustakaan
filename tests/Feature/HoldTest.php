@@ -108,6 +108,49 @@ class HoldTest extends TestCase
         ]);
     }
 
+    public function test_the_scheduled_command_expires_stale_holds(): void
+    {
+        $admin = $this->admin();
+        $borrower = $this->member();
+        $waiter = $this->member();
+        $book = $this->bookWithCopies(1, BookCopyStatus::Available);
+        $copy = BookCopy::firstOrFail();
+        app(LoanService::class)->checkOutCopy($borrower, $copy, $admin);
+        $hold = app(HoldService::class)->place($waiter, $book);
+        $this->actingAs($admin)->post('/admin/sirkulasi/kembali', [
+            'barcode' => $copy->code,
+            'condition' => 'baik',
+        ])->assertSessionHas('success');
+        $hold->update(['pickup_expires_at' => now()->subMinute()]);
+
+        $this->artisan('library:expire-holds')->assertSuccessful();
+
+        $this->assertSame(HoldStatus::Expired, $hold->fresh()->status);
+        $this->assertSame(BookCopyStatus::Available, $copy->fresh()->status);
+    }
+
+    public function test_an_expired_hold_is_not_fulfilled_at_check_out(): void
+    {
+        $admin = $this->admin();
+        $borrower = $this->member();
+        $waiter = $this->member();
+        $book = $this->bookWithCopies(1, BookCopyStatus::Available);
+        $copy = BookCopy::firstOrFail();
+        app(LoanService::class)->checkOutCopy($borrower, $copy, $admin);
+        $hold = app(HoldService::class)->place($waiter, $book);
+        $this->actingAs($admin)->post('/admin/sirkulasi/kembali', [
+            'barcode' => $copy->code,
+            'condition' => 'baik',
+        ])->assertSessionHas('success');
+        $hold->update(['pickup_expires_at' => now()->subDay()]);
+
+        app(LoanService::class)->checkOutCopy($waiter, BookCopy::findOrFail($copy->id), $admin);
+
+        $this->assertSame(HoldStatus::Expired, $hold->fresh()->status);
+        $this->assertNull($hold->fresh()->loan_id);
+        $this->assertSame(BookCopyStatus::Loan, $copy->fresh()->status);
+    }
+
     public function test_only_the_holder_can_check_out_a_reserved_copy(): void
     {
         $borrower = $this->member();

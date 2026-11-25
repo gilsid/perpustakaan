@@ -182,10 +182,20 @@ Tes memakai disk palsu, jadi tidak menyentuh berkas di `storage/`.
 ```bash
 # .env: APP_ENV=production, APP_DEBUG=false, APP_URL=https://domain-anda
 composer install --no-dev --optimize-autoloader
+npm install && npm run build
 php artisan migrate --force
 php artisan storage:link
 php artisan optimize          # cache config, route, event, view
 ```
 
 Arahkan document root web server ke folder `public/`, teruskan semua URL ke `index.php`, dan pakai HTTPS.
+`public/build` tidak disimpan di git, jadi aset harus dibangun di server setiap deploy.
+
+Pasang satu entri cron agar hold yang lewat masa ambil dilepas tanpa menunggu pengunjung membuka halaman.
+
+```cron
+* * * * * cd /path/ke/aplikasi && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Perintahnya juga bisa dijalankan manual dengan `php artisan library:expire-holds`.
 Belum ada fitur lupa-sandi via email; admin mereset sandi dari halaman Pengguna.
