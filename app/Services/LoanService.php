@@ -148,14 +148,10 @@ class LoanService
         return $closure;
     }
 
-    /**
-     * Mengakhiri pinjaman dari panel admin. Denda tetap dihitung bila sudah lewat tenggat.
-     *
-     * @throws LoanException
-     */
-    public function endByAdmin(Loan $loan, User $admin): LoanClosure
+    /** @throws LoanException */
+    public function endByAdmin(Loan $loan, User $admin, ?BookCopyCondition $condition = null): LoanClosure
     {
-        $closure = DB::transaction(function () use ($loan): LoanClosure {
+        $closure = DB::transaction(function () use ($loan, $condition): LoanClosure {
             $locked = Loan::query()->whereKey($loan->id)->lockForUpdate()->first()
                 ?? throw new LoanException('Pinjaman tidak ditemukan.');
 
@@ -163,7 +159,11 @@ class LoanService
                 throw new LoanException('Pinjaman tidak ditemukan atau sudah selesai.');
             }
 
-            return $this->closeLoan($locked);
+            if ($locked->isPhysical() && $condition === null) {
+                throw new LoanException('Kondisi eksemplar wajib dipilih.');
+            }
+
+            return $this->closeLoan($locked, $condition ?? BookCopyCondition::Good);
         });
 
         if ($closure->loan->late_days > 0) {
@@ -171,6 +171,10 @@ class LoanService
         }
 
         if ($closure->loan->isPhysical()) {
+            if ($closure->loan->replacement_amount > 0) {
+                $this->audit->replacementCharged($closure->loan, $admin);
+            }
+
             $this->audit->copyCheckedIn($closure->loan, $admin);
         }
 

@@ -70,10 +70,14 @@
                                     <button class="act-btn" type="submit" title="Perpanjang pinjaman"><x-icon name="refresh" />Perpanjang</button>
                                 </form>
                             @endif
-                            <form method="post" action="{{ route('admin.loans.update', $l) }}" data-confirm="Akhiri pinjaman “{{ $l->book->title }}” milik {{ $l->user->name }}? Aksesnya langsung ditutup dan denda dihitung bila telat." data-confirm-label="Akhiri pinjaman">
-                                @csrf @method('PATCH')
-                                <button class="act-btn" type="submit" title="Akhiri pinjaman"><x-icon name="x" />Akhiri</button>
-                            </form>
+                            @if ($l->isPhysical())
+                                <a class="act-btn" href="{{ route('admin.circulation.index') }}" title="Terima kembali eksemplar di meja sirkulasi"><x-icon name="check" />Check-in</a>
+                            @else
+                                <form method="post" action="{{ route('admin.loans.update', $l) }}" data-confirm="Akhiri pinjaman “{{ $l->book->title }}” milik {{ $l->user->name }}? Aksesnya langsung ditutup dan denda dihitung bila telat." data-confirm-label="Akhiri pinjaman">
+                                    @csrf @method('PATCH')
+                                    <button class="act-btn" type="submit" title="Akhiri pinjaman"><x-icon name="x" />Akhiri</button>
+                                </form>
+                            @endif
                         @endif
                         @if ($l->fine_status->canBeSettled())
                             <form method="post" action="{{ route('admin.loans.fine.pay', $l) }}" data-confirm="Tandai denda {{ \App\Support\Rupiah::format($l->fine_amount) }} milik {{ $l->user->name }} lunas? Pastikan uang sudah diterima." data-confirm-label="Tandai lunas">

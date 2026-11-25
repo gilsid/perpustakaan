@@ -94,7 +94,10 @@ class HoldTest extends TestCase
         $loan = app(LoanService::class)->checkOutCopy($borrower, $copy, $admin);
         app(HoldService::class)->place($waiter, $book);
 
-        $this->actingAs($admin)->patch("/admin/peminjaman/{$loan->id}")->assertSessionHas('success');
+        $this->actingAs($admin)->post('/admin/sirkulasi/kembali', [
+            'barcode' => $copy->code,
+            'condition' => 'baik',
+        ])->assertSessionHas('success');
 
         $this->assertSame(BookCopyStatus::OnHold, $copy->fresh()->status);
         $this->assertDatabaseHas('holds', [
@@ -115,7 +118,10 @@ class HoldTest extends TestCase
 
         $loan = app(LoanService::class)->checkOutCopy($borrower, $copy, $admin);
         $hold = app(HoldService::class)->place($waiter, $book);
-        $this->actingAs($admin)->patch("/admin/peminjaman/{$loan->id}")->assertSessionHas('success');
+        $this->actingAs($admin)->post('/admin/sirkulasi/kembali', [
+            'barcode' => $copy->code,
+            'condition' => 'baik',
+        ])->assertSessionHas('success');
 
         try {
             app(LoanService::class)->checkOutCopy($borrower, BookCopy::findOrFail($copy->id), $admin);

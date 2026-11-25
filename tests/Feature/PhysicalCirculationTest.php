@@ -72,10 +72,28 @@ class PhysicalCirculationTest extends TestCase
         $copy = $this->copyFor($book);
         $loan = app(LoanService::class)->checkOutCopy($this->member(), $copy, $admin);
 
-        $this->actingAs($admin)->patch("/admin/peminjaman/{$loan->id}")->assertSessionHas('success');
+        $this->actingAs($admin)->post('/admin/sirkulasi/kembali', [
+            'barcode' => $copy->code,
+            'condition' => 'baik',
+        ])->assertSessionHas('success');
 
         $this->assertSame(BookCopyStatus::Available, $copy->fresh()->status);
+        $this->assertNotNull($loan->fresh()->returned_at);
         $this->assertDatabaseHas('activity_logs', ['action' => 'checkin_copy', 'entity_id' => $loan->id]);
+    }
+
+    public function test_a_physical_loan_cannot_be_ended_without_a_condition(): void
+    {
+        $admin = $this->admin();
+        $book = Book::factory()->create();
+        $copy = $this->copyFor($book);
+        $loan = app(LoanService::class)->checkOutCopy($this->member(), $copy, $admin);
+
+        $this->actingAs($admin)->patch("/admin/peminjaman/{$loan->id}")
+            ->assertSessionHasErrors('condition');
+
+        $this->assertNull($loan->fresh()->returned_at);
+        $this->assertSame(BookCopyStatus::Loan, $copy->fresh()->status);
     }
 
     public function test_a_physical_loan_does_not_grant_pdf_access(): void

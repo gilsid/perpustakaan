@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\BookCopyCondition;
 use App\Enums\LoanStatus;
 use App\Exceptions\LoanException;
 use App\Http\Controllers\Controller;
@@ -12,6 +13,7 @@ use App\Support\SearchTerm;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class LoanController extends Controller
 {
@@ -56,11 +58,18 @@ class LoanController extends Controller
         return back()->with('success', 'Pinjaman diperpanjang sampai '.$renewed->due_at->translatedFormat('j M Y').'.');
     }
 
-    /** Mengakhiri pinjaman (akses langsung ditutup). Denda tetap dihitung bila telat. */
     public function update(Request $request, Loan $loan): RedirectResponse
     {
+        $condition = null;
+        if ($loan->isPhysical()) {
+            $validated = $request->validate([
+                'condition' => ['required', Rule::enum(BookCopyCondition::class)],
+            ], ['condition.required' => 'Kondisi eksemplar wajib dipilih.']);
+            $condition = BookCopyCondition::from($validated['condition']);
+        }
+
         try {
-            $closure = $this->loans->endByAdmin($loan, $request->user());
+            $closure = $this->loans->endByAdmin($loan, $request->user(), $condition);
         } catch (LoanException $e) {
             return back()->with('error', $e->getMessage());
         }
