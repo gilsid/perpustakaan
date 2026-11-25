@@ -96,6 +96,21 @@ class PhysicalCirculationTest extends TestCase
         $this->assertSame(BookCopyStatus::Loan, $copy->fresh()->status);
     }
 
+    public function test_an_inactive_member_cannot_take_a_copy(): void
+    {
+        $admin = $this->admin();
+        $member = User::factory()->inactive()->create();
+        $book = Book::factory()->create();
+        $copy = $this->copyFor($book);
+
+        $this->actingAs($admin)->post('/admin/sirkulasi', [
+            'member' => $member->member_number,
+            'barcode' => $copy->code,
+        ])->assertSessionHas('error', 'Hanya anggota aktif yang boleh meminjam.');
+
+        $this->assertSame(BookCopyStatus::Available, $copy->fresh()->status);
+    }
+
     public function test_a_physical_loan_does_not_grant_pdf_access(): void
     {
         $user = $this->member();

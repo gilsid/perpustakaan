@@ -32,6 +32,9 @@ final class BorrowEligibility
     {
         $blocks = [];
 
+        if (! $user->is_active || ! $user->isMember()) {
+            $blocks[] = BorrowBlock::inactiveOrNotMember();
+        }
         if (! $user->hasMemberNumber()) {
             $blocks[] = BorrowBlock::noMemberNumber();
         }

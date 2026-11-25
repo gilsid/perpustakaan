@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\BorrowBlockReason;
 use App\Models\Book;
 use App\Models\Loan;
+use App\Models\User;
 use App\Services\BorrowEligibility;
 use App\Support\BorrowBlock;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -36,6 +37,27 @@ class BorrowEligibilityTest extends TestCase
         $this->assertNull($standing->first());
         $this->assertSame(0, $standing->activeLoans);
         $this->assertSame(5, $standing->maxActive);
+    }
+
+    public function test_an_inactive_account_cannot_borrow(): void
+    {
+        $user = User::factory()->inactive()->create();
+
+        $this->assertSame(
+            [BorrowBlockReason::InactiveOrNotMember],
+            $this->reasons($this->eligibility()->forMember($user)->blocks),
+        );
+        $this->assertSame('Hanya anggota aktif yang boleh meminjam.', $this->eligibility()->forMember($user)->first()->message());
+    }
+
+    public function test_an_admin_cannot_borrow_as_a_member(): void
+    {
+        $admin = $this->admin();
+
+        $this->assertContains(
+            BorrowBlockReason::InactiveOrNotMember,
+            $this->reasons($this->eligibility()->forMember($admin)->blocks),
+        );
     }
 
     public function test_account_problems_are_reported_in_order(): void

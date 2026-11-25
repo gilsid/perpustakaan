@@ -26,6 +26,11 @@ final readonly class BorrowBlock
         return new self(BorrowBlockReason::NoMemberNumber);
     }
 
+    public static function inactiveOrNotMember(): self
+    {
+        return new self(BorrowBlockReason::InactiveOrNotMember);
+    }
+
     public static function membershipExpired(CarbonInterface $until): self
     {
         return new self(BorrowBlockReason::MembershipExpired, ['until' => $until]);
@@ -69,6 +74,7 @@ final readonly class BorrowBlock
         return match ($this->reason) {
             BorrowBlockReason::NoPdf => 'Buku ini belum tersedia dalam bentuk digital, jadi belum bisa dipinjam.',
             BorrowBlockReason::NoMemberNumber => 'Akun ini belum memiliki nomor kartu anggota.',
+            BorrowBlockReason::InactiveOrNotMember => 'Hanya anggota aktif yang boleh meminjam.',
             BorrowBlockReason::MembershipExpired => 'Keanggotaan berakhir pada '.$this->data['until']->translatedFormat('j M Y').'. Perbarui dulu di perpustakaan.',
             BorrowBlockReason::CopyUnavailable => 'Eksemplar fisik ini sedang dipinjam, ditahan untuk hold, atau tidak tersedia.',
             BorrowBlockReason::AlreadyBorrowed => 'Anda sudah meminjam buku ini.',
