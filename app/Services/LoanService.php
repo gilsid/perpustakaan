@@ -77,17 +77,27 @@ class LoanService
                 $this->holds->expireStale();
                 $lockedCopy->refresh();
 
-                $heldCopy = Hold::query()
+                $memberHold = Hold::query()
                     ->where('user_id', $lockedUser->id)
-                    ->where('copy_id', $lockedCopy->id)
-                    ->where('status', HoldStatus::Ready)
+                    ->where('book_id', $lockedCopy->book_id)
+                    ->pending()
+                    ->where(function ($query) use ($lockedCopy): void {
+                        $query->where('status', HoldStatus::Active)
+                            ->orWhere(fn ($ready) => $ready
+                                ->where('status', HoldStatus::Ready)
+                                ->where('copy_id', $lockedCopy->id));
+                    })
+                    ->orderBy('id')
                     ->first();
 
-                if ($heldCopy === null && $lockedCopy->status === BookCopyStatus::OnHold) {
+                $reservedForOther = $lockedCopy->status === BookCopyStatus::OnHold
+                    && ! ($memberHold?->status === HoldStatus::Ready && $memberHold->copy_id === $lockedCopy->id);
+
+                if ($reservedForOther) {
                     throw new LoanException('Eksemplar ini sedang ditahan untuk hold anggota lain.');
                 }
 
-                if ($block = $this->eligibility->forBook($lockedUser, $lockedCopy->book, LoanFormat::Physical, $lockedCopy, $heldCopy)->first()) {
+                if ($block = $this->eligibility->forBook($lockedUser, $lockedCopy->book, LoanFormat::Physical, $lockedCopy, $memberHold)->first()) {
                     throw new LoanException($block->message());
                 }
 
@@ -103,8 +113,8 @@ class LoanService
 
                 $lockedCopy->update(['status' => BookCopyStatus::Loan]);
 
-                if ($heldCopy !== null) {
-                    $this->holds->fulfill($heldCopy, $loan, $admin);
+                if ($memberHold !== null) {
+                    $this->holds->fulfill($memberHold, $loan, $admin);
                 }
 
                 return $loan;

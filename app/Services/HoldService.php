@@ -131,7 +131,12 @@ final class HoldService
 
     public function fulfill(Hold $hold, Loan $loan, User $actor): void
     {
-        $hold->update(['status' => HoldStatus::Fulfilled, 'fulfilled_at' => now(), 'loan_id' => $loan->id]);
+        $hold->update([
+            'status' => HoldStatus::Fulfilled,
+            'fulfilled_at' => now(),
+            'loan_id' => $loan->id,
+            'copy_id' => $hold->copy_id ?? $loan->copy_id,
+        ]);
         $this->audit->holdFulfilled($hold, $actor);
     }
 

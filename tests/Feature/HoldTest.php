@@ -215,4 +215,32 @@ class HoldTest extends TestCase
         $this->assertSame(BookCopyStatus::Available, $copy->fresh()->status);
         $this->assertDatabaseHas('activity_logs', ['action' => 'hold_expired', 'user_id' => null]);
     }
+
+    public function test_an_active_hold_is_consumed_when_the_member_takes_a_new_copy(): void
+    {
+        $admin = $this->admin();
+        $borrower = $this->member();
+        $waiter = $this->member();
+        $book = $this->bookWithCopies(1, BookCopyStatus::Available);
+        $oldCopy = BookCopy::firstOrFail();
+        app(LoanService::class)->checkOutCopy($borrower, $oldCopy, $admin);
+        $hold = app(HoldService::class)->place($waiter, $book);
+        $newCopy = BookCopy::create([
+            'book_id' => $book->id,
+            'code' => 'HOLD-NEW-01',
+            'status' => BookCopyStatus::Available,
+        ]);
+
+        app(LoanService::class)->checkOutCopy($waiter, $newCopy, $admin);
+
+        $this->assertSame(HoldStatus::Fulfilled, $hold->fresh()->status);
+        $this->assertSame($newCopy->id, $hold->fresh()->copy_id);
+
+        $this->actingAs($admin)->post('/admin/sirkulasi/kembali', [
+            'barcode' => $oldCopy->code,
+            'condition' => 'baik',
+        ])->assertSessionHas('success');
+
+        $this->assertSame(BookCopyStatus::Available, $oldCopy->fresh()->status);
+    }
 }
