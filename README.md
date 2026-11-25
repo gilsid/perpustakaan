@@ -138,7 +138,7 @@ docs/adr/                keputusan arsitektur
 lang/id/                 terjemahan validasi
 resources/               views (Blade: components/, layouts/), css, js
 routes/web.php           semua rute (bernama)
-tests/                   Feature + Unit (225 tes)
+tests/                   Feature + Unit (239 tes)
 ```
 
 Aturan domain punya satu pemilik: `LoanClock` untuk waktu pinjaman, `LoanAccess` untuk akses anggota ke buku,
