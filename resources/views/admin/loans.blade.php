@@ -113,7 +113,7 @@
         </div>
         <div class="dialog__actions">
             <button type="button" class="btn btn--ghost" data-close>Batal</button>
-            <button type="submit" class="btn btn--primary">Bebaskan denda</button>
+            <button type="submit" class="btn btn--primary">Bebaskan tagihan</button>
         </div>
     </form>
 </dialog>

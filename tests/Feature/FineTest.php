@@ -303,6 +303,13 @@ class FineTest extends TestCase
             ->assertDontSee($paid->book->title);
     }
 
+    public function test_the_waive_dialog_names_a_generic_charge(): void
+    {
+        $this->actingAs($this->admin())->get('/admin/peminjaman')
+            ->assertOk()
+            ->assertSee('<button type="submit" class="btn btn--primary">Bebaskan tagihan</button>', false);
+    }
+
     public function test_only_admins_can_settle_or_waive_fines(): void
     {
         $loan = $this->overdueLoan($this->member(), attributes: ['fine_amount' => 3000, 'late_days' => 3]);
