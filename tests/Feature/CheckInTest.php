@@ -57,6 +57,13 @@ class CheckInTest extends TestCase
         $this->assertSame(HoldStatus::Active, $hold->fresh()->status);
     }
 
+    public function test_the_check_in_form_has_no_default_condition(): void
+    {
+        $this->actingAs($this->admin())->get('/admin/sirkulasi')
+            ->assertOk()
+            ->assertSee('<option value="" disabled selected>Pilih kondisi</option>', false);
+    }
+
     public function test_an_unknown_barcode_is_rejected(): void
     {
         $this->actingAs($this->admin())->post('/admin/sirkulasi/kembali', [

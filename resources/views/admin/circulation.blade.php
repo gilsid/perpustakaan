@@ -34,6 +34,7 @@
             <div class="field">
                 <label for="return-condition">Kondisi</label>
                 <select id="return-condition" name="condition" required>
+                    <option value="" disabled selected>Pilih kondisi</option>
                     @foreach (\App\Enums\BookCopyCondition::cases() as $condition)
                         <option value="{{ $condition->value }}">{{ $condition->label() }}</option>
                     @endforeach
