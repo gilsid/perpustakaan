@@ -56,6 +56,14 @@ _Avoid_: pengembalian (bila pelakunya petugas), return
 Permintaan anggota untuk eksemplar berikutnya dari sebuah judul yang sedang habis.
 _Avoid_: reservasi, pesanan, booking
 
+**Masa ambil hold**:
+Tujuh hari sejak eksemplar ditahan untuk pemegang hold. Setelah lewat, hold gugur dan eksemplar ditawarkan ke antrean berikutnya.
+_Avoid_: batas ambil, masa tunggu hold, pickup window
+
+**Akhiri pinjaman**:
+Penutupan pinjaman digital oleh petugas tanpa penerimaan eksemplar.
+_Avoid_: check-in untuk pinjaman digital, kembalikan digital
+
 ## Tagihan
 
 **Denda keterlambatan**:
