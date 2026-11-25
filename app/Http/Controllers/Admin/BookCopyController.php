@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\BookCopyRequest;
 use App\Models\Book;
 use App\Models\BookCopy;
+use App\Models\Hold;
 use App\Services\Audit;
 use App\Support\SearchTerm;
 use Illuminate\Contracts\View\View;
@@ -67,7 +68,12 @@ class BookCopyController extends Controller
 
     public function update(BookCopyRequest $request, BookCopy $copy): RedirectResponse
     {
-        $copy->update($request->validated());
+        $validated = $request->validated();
+        if (BookCopyStatus::from($validated['status']) === BookCopyStatus::Available && $this->isCommitted($copy)) {
+            return back()->with('error', 'Eksemplar sedang dipinjam atau ditahan untuk hold.');
+        }
+
+        $copy->update($validated);
         $this->audit->copyUpdated($copy, $request->user());
 
         return redirect()->route('admin.copies.index')->with('success', "Eksemplar {$copy->code} diperbarui.");
@@ -75,8 +81,8 @@ class BookCopyController extends Controller
 
     public function destroy(BookCopy $copy): RedirectResponse
     {
-        if ($copy->loans()->whereNull('returned_at')->exists()) {
-            return back()->with('error', 'Eksemplar sedang dipinjam dan tidak bisa dihapus.');
+        if ($this->isCommitted($copy)) {
+            return back()->with('error', 'Eksemplar sedang dipinjam atau ditahan untuk hold dan tidak bisa dihapus.');
         }
 
         $code = $copy->code;
@@ -84,5 +90,12 @@ class BookCopyController extends Controller
         $this->audit->copyDeleted($copy, request()->user());
 
         return back()->with('success', "Eksemplar {$code} dihapus.");
+    }
+
+    private function isCommitted(BookCopy $copy): bool
+    {
+        return $copy->status === BookCopyStatus::OnHold
+            || $copy->loans()->whereNull('returned_at')->exists()
+            || Hold::query()->where('copy_id', $copy->id)->pending()->exists();
     }
 }

@@ -6,6 +6,7 @@ use App\Enums\BookCopyStatus;
 use App\Models\Book;
 use App\Models\BookCopy;
 use App\Services\FineService;
+use App\Services\HoldService;
 use App\Services\LoanService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -78,7 +79,46 @@ class CopyManagementTest extends TestCase
         app(LoanService::class)->checkOutCopy($this->member(), $copy, $admin);
 
         $this->actingAs($admin)->delete("/admin/eksemplar/{$copy->id}")
-            ->assertSessionHas('error', 'Eksemplar sedang dipinjam dan tidak bisa dihapus.');
+            ->assertSessionHas('error', 'Eksemplar sedang dipinjam atau ditahan untuk hold dan tidak bisa dihapus.');
+
+        $this->assertDatabaseHas('book_copies', ['id' => $copy->id]);
+    }
+
+    public function test_a_copy_on_loan_cannot_be_marked_available(): void
+    {
+        $admin = $this->admin();
+        $book = $this->book();
+        $copy = BookCopy::create([
+            'book_id' => $book->id,
+            'code' => 'BR-UbahAktif',
+            'status' => BookCopyStatus::Available,
+        ]);
+        app(LoanService::class)->checkOutCopy($this->member(), $copy, $admin);
+
+        $this->actingAs($admin)->put("/admin/eksemplar/{$copy->id}", [
+            'book_id' => $book->id,
+            'code' => $copy->code,
+            'status' => 'available',
+        ])->assertSessionHas('error', 'Eksemplar sedang dipinjam atau ditahan untuk hold.');
+
+        $this->assertSame(BookCopyStatus::Loan, $copy->fresh()->status);
+    }
+
+    public function test_a_copy_reserved_for_a_hold_cannot_be_deleted(): void
+    {
+        $admin = $this->admin();
+        $book = $this->book();
+        $copy = BookCopy::create([
+            'book_id' => $book->id,
+            'code' => 'BR-Hold',
+            'status' => BookCopyStatus::Available,
+        ]);
+        app(LoanService::class)->checkOutCopy($this->member(), $copy, $admin);
+        app(HoldService::class)->place($this->member(), $book);
+        $this->actingAs($admin)->post('/admin/sirkulasi/kembali', ['barcode' => $copy->code, 'condition' => 'baik']);
+
+        $this->actingAs($admin)->delete("/admin/eksemplar/{$copy->id}")
+            ->assertSessionHas('error', 'Eksemplar sedang dipinjam atau ditahan untuk hold dan tidak bisa dihapus.');
 
         $this->assertDatabaseHas('book_copies', ['id' => $copy->id]);
     }
